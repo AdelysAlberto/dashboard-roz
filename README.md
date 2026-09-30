@@ -1,6 +1,8 @@
 <p align="center">
-  <h1 align="center">Roz</h1>
+  <img src="docs/screenshots/roz-document-view.png" width="850" alt="Roz — Markdown Document Management and Agent Tracker" />
 </p>
+
+<h1 align="center">Roz</h1>
 
 <p align="center">
   <b>"I'm watching you, Wazowski... always watching."</b><br>
@@ -39,6 +41,11 @@ La plataforma combina un motor de escaneo inteligente multi-raíz que indexa, va
 ## Key Features
 
 ### Gestión y Clasificación de Documentos Markdown
+
+<p align="center">
+  <img src="docs/screenshots/roz-welcome.png" width="850" alt="Roz — Estado inicial y bienvenida con mascota" />
+</p>
+
 * **Escaneo Multi-Proyecto**: Configuración dinámica de múltiples rutas raíz locales simultáneas con persistencia en `localStorage`.
 * **Extracción Inteligente de Metadatos**: Detección automática de variables frontmatter YAML y tablas de especificaciones técnicas (`Status`, `Priority`, `Module`, `Scope`, `Author`, `Date`).
 * **Motor de Filtrado y Agrupación**:
@@ -49,6 +56,11 @@ La plataforma combina un motor de escaneo inteligente multi-raíz que indexa, va
 * **Acciones de Ciclo de Vida**: Transición de estado con un solo clic, reubicación a directorios de cierre (ej. `done/`) y eliminación protegida por diálogo de confirmación.
 
 ### Supervisión de Trabajadores y Agentes de IA
+
+<p align="center">
+  <img src="docs/screenshots/roz-subagent-monitor.png" width="850" alt="Roz — Monitor de sesiones y telemetría de subagentes en vivo" />
+</p>
+
 * **Torre de Control Multi-Proveedor**: Soporte nativo para providers de agentes (**Pi** y **OpenCode**).
 * **Monitoreo de Subagentes en Vivo**:
   * Detección automática de procesos huérfanos, subagentes activos y sesiones de trabajo.
@@ -144,6 +156,9 @@ roz/
 ├── .env.example              # Plantilla de configuración de entorno
 ├── start.sh                  # Orquestador de arranque (venv + build + uvicorn)
 ├── stop.sh                   # Detención limpia mediante PID (.roz.pid)
+│
+├── docs/                     # Recursos de documentación y capturas
+│   └── screenshots/          # Vistas de la aplicación y flujos de trabajo
 │
 ├── server/                   # Backend FastAPI
 │   ├── app.py                # Router API REST, WebSocket y hosting de SPA estática
