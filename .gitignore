@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.roz.log
+.roz.pid
+.roz_roots.json

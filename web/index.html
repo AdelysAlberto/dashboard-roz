@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f6f8fa" media="(prefers-color-scheme: light)">
+<title>roz — md tracker</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header id="topbar">
+  <div class="brand"><span class="prompt-sym">❯</span> roz<span class="cursor">_</span></div>
+  <div class="sub">markdown&nbsp;tracker</div>
+  <div class="spacer"></div>
+  <div class="stat" id="stat-count">0 docs</div>
+  <div class="stat" id="stat-model"></div>
+  <button class="ghost" id="btn-theme" title="toggle light/dark">☀ light</button>
+  <button class="ghost" id="btn-rescan" title="Rescan all roots">⟳ rescan</button>
+  <button class="ghost" id="btn-validate" title="Audit frontmatter conventions (read-only)">✓ validate</button>
+  <button class="ghost" id="btn-roots" title="Manage scan paths">⚙ paths</button>
+</header>
+
+<main id="layout">
+  <!-- left: document list -->
+  <aside id="sidebar-left">
+    <div class="search-box">
+      <input id="search" type="text" placeholder="grep docs…" autocomplete="off">
+    </div>
+    <div class="filters" id="status-filters">
+      <button class="fchip active" data-f="all">all</button>
+      <button class="fchip" data-f="active">active</button>
+      <button class="fchip" data-f="pending">pending</button>
+      <button class="fchip" data-f="done">done</button>
+      <button class="fchip" data-f="rejected">rejected</button>
+      <button class="fchip" data-f="deprecated">deprecated</button>
+      <button class="fchip" data-f="none">no-status</button>
+    </div>
+    <nav id="doclist" aria-label="documents"></nav>
+  </aside>
+
+  <!-- center: viewer -->
+  <section id="center">
+    <div id="tabs">
+      <button class="tab active" data-tab="doc">document</button>
+      <button class="tab" data-tab="analysis">analysis <span id="analysis-dot" hidden>●</span></button>
+      <button class="tab" data-tab="monitor">monitor <span id="monitor-dot" hidden>●</span></button>
+    </div>
+    <div id="empty-state">
+      <pre class="ascii">
+╔══════════════════════╗
+║  roz  ::  md-tracker ║
+╚══════════════════════╝
+      </pre>
+      <p>Select a document from the left.<br>Add scan paths with <b>paths</b>.</p>
+    </div>
+    <section id="monitor-pane" hidden>
+      <div id="monitor-toolbar">
+        <span class="rail-title">agent sessions</span>
+        <button class="ghost sm" id="btn-mon-refresh">⟳ refresh</button>
+        <label class="chk"><input type="checkbox" id="mon-hide-ended" checked> live only</label>
+        <span class="spacer"></span>
+        <span id="mon-summary" class="hint"></span>
+      </div>
+      <div id="monitor-grid"></div>
+    </section>
+    <section id="monitor-detail" hidden>
+      <div id="mon-detail-head">
+        <button class="ghost sm" id="btn-mon-back">← back</button>
+        <div class="mon-detail-title"><b id="mon-d-agent"></b> <span id="mon-d-tag" class="badge"></span> <span id="mon-d-state" class="state-pill"></span></div>
+        <span class="spacer"></span>
+        <button class="danger sm" id="btn-mon-wake" hidden title="Subagents run with stdin closed; the only nudge available is SIGTERM (abort). The dispatcher sees the failure and can re-launch.">⚡ abort</button>
+      </div>
+      <div id="mon-d-task" class="mon-task"></div>
+      <div id="mon-log"></div>
+    </section>
+    <article id="viewer" hidden></article>
+    <section id="analysis-pane" hidden>
+      <div id="analysis-log"></div>
+      <div id="chat-input-row" hidden>
+        <input id="chat-input" type="text" placeholder="reply to the agent or send a follow-up…" autocomplete="off">
+        <button class="ghost" id="btn-send" title="send">↩</button>
+        <button class="ghost" id="btn-abort" title="close analysis session">✕ close</button>
+      </div>
+    </section>
+  </section>
+
+  <!-- right: actions -->
+  <aside id="sidebar-right">
+    <div id="actions-empty" class="rail-note">no document selected</div>
+    <div id="actions" hidden>
+      <div class="rail-title">status</div>
+      <div class="status-row">
+        <button class="sbtn" data-status="pending">↻ pending</button>
+        <button class="sbtn ok" data-status="done">✓ done</button>
+        <button class="sbtn bad" data-status="rejected">✗ rejected</button>
+      </div>
+      <div class="status-row">
+        <button class="sbtn" data-status="active">● active</button>
+        <button class="sbtn" data-status="deprecated">⊘ deprecated</button>
+      </div>
+      <div class="current-status" id="current-status"></div>
+
+      <div class="rail-title">file</div>
+      <label class="lbl" for="src-path">source</label>
+      <input id="src-path" type="text" readonly tabindex="-1" title="current file location">
+      <label class="lbl" for="move-dest">move to directory</label>
+      <input id="move-dest" type="text" placeholder="destination directory…">
+      <button class="movebtn" id="btn-move">→ move file</button>
+      <button class="danger" id="btn-delete">⌫ delete file</button>
+
+      <div class="rail-title">AI analysis</div>
+      <label class="lbl" for="agent">agent</label>
+      <select id="agent"></select>
+      <label class="lbl" for="prompt">prompt <span class="hint">{file} {content} placeholders</span></label>
+      <textarea id="prompt" rows="7"></textarea>
+      <button class="analyze" id="btn-analyze"><span class="zap">⚡</span> analyze with pi</button>
+      <div class="run-info" id="run-info"></div>
+    </div>
+  </aside>
+</main>
+
+<div id="roots-modal" hidden>
+  <div class="modal">
+    <h3>scan paths</h3>
+    <ul id="roots-list"></ul>
+    <div class="file-row">
+      <input id="new-root" type="text" placeholder="/path/to/folder">
+      <button class="ghost sm" id="btn-add-root">+</button>
+    </div>
+    <div class="modal-actions"><button class="ghost" id="btn-close-roots">close</button></div>
+  </div>
+</div>
+
+<div id="validate-modal" hidden>
+  <div class="modal">
+    <h3>frontmatter validation</h3>
+    <p class="confirm-body" id="validate-summary">running…</p>
+    <div id="validate-issues" class="validate-list"></div>
+    <div class="modal-actions">
+      <button class="ghost" id="btn-close-validate">close</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-modal" hidden>
+  <div class="modal">
+    <h3 id="confirm-title">confirm</h3>
+    <p id="confirm-text" class="confirm-body"></p>
+    <div class="modal-actions">
+      <button class="ghost" id="btn-confirm-no">cancel</button>
+      <button class="confirm-yes" id="btn-confirm-yes">confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/mdrender.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

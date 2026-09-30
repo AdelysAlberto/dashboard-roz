@@ -1,0 +1,76 @@
+.input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.input-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.input-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.input-hint {
+  font-size: 0.725rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.input-box {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 0.65rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input-box:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.input-control {
+  flex: 1;
+  padding: 0.48rem 0;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  background: transparent;
+  width: 100%;
+}
+
+.input-control::placeholder {
+  color: var(--text-dim);
+}
+
+.input-icon-left {
+  display: flex;
+  align-items: center;
+  margin-right: 0.5rem;
+  color: var(--text-dim);
+}
+
+.input-right-element {
+  display: flex;
+  align-items: center;
+  margin-left: 0.5rem;
+}
+
+.input-has-error .input-box {
+  border-color: var(--color-rejected);
+}
+
+.input-error-msg {
+  font-size: 0.75rem;
+  color: var(--color-rejected);
+}

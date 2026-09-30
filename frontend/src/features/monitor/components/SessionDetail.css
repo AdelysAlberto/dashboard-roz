@@ -1,0 +1,121 @@
+.session-detail-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background-color: var(--bg-app);
+  overflow: hidden;
+}
+
+.detail-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.detail-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.detail-agent-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+
+.detail-pid {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  background-color: var(--bg-input);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-subtle);
+}
+
+.detail-task-card {
+  padding: 0.85rem 1.25rem;
+  background-color: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.detail-task-label {
+  font-size: 0.725rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin-bottom: 0.25rem;
+}
+
+.detail-task-text {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-main);
+  white-space: pre-wrap;
+}
+
+.detail-log-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-log-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.ev-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.725rem;
+  color: var(--text-dim);
+}
+
+.ev-head {
+  font-weight: 600;
+}
+
+.ev-kind-tool {
+  border-left: 3px solid #eab308;
+}
+.ev-kind-tool .ev-head { color: #eab308; }
+
+.ev-kind-result {
+  border-left: 3px solid var(--color-done);
+}
+.ev-kind-result .ev-head { color: var(--color-done); }
+
+.ev-text {
+  font-size: 0.775rem;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detail-loading,
+.detail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 100%;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}

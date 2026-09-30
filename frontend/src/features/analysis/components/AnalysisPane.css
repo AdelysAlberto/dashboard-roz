@@ -1,0 +1,120 @@
+.analysis-pane-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background-color: var(--bg-app);
+  overflow: hidden;
+}
+
+.analysis-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1.25rem;
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.analysis-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.analysis-icon {
+  color: var(--accent);
+}
+
+.analysis-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.analysis-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.725rem;
+  font-weight: 500;
+}
+
+.status-live {
+  background-color: var(--color-done-bg);
+  border: 1px solid var(--color-done-border);
+  color: var(--color-done);
+}
+.status-live .pulse-dot {
+  background-color: var(--color-done);
+}
+
+.status-idle {
+  background-color: var(--color-pending-bg);
+  border: 1px solid var(--color-pending-border);
+  color: var(--color-pending);
+}
+.status-idle .pulse-dot {
+  background-color: var(--color-pending);
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: pulse 1.2s infinite;
+}
+
+.run-id-tag {
+  font-size: 0.725rem;
+  color: var(--text-dim);
+  background-color: var(--bg-input);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-subtle);
+}
+
+.analysis-log-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.analysis-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  gap: 0.5rem;
+  color: var(--text-dim);
+  padding: 2rem;
+}
+
+.empty-bot-icon {
+  color: var(--accent);
+  opacity: 0.7;
+  margin-bottom: 0.5rem;
+}
+
+.empty-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.empty-subtitle {
+  font-size: 0.85rem;
+  max-width: 380px;
+  line-height: 1.5;
+}
+
+.empty-subtitle strong {
+  color: var(--text-main);
+}
