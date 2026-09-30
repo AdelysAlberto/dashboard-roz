@@ -76,6 +76,62 @@ La plataforma combina un motor de escaneo inteligente multi-raíz que indexa, va
 
 ---
 
+## Document Format Specification
+
+Para que Roz pueda indexar, clasificar, validar y gestionar automáticamente el ciclo de vida de los documentos Markdown (`.md`), se requiere el uso de metadatos estandarizados al inicio del archivo.
+
+### Estándar Canónico: YAML Frontmatter
+
+Todo documento técnico (`artifacts/`, `plan/`, especificaciones, auditorías o notas de deuda) debe comenzar con un bloque de frontmatter YAML delimitado por `---`:
+
+```yaml
+---
+title: <TAG — Título descriptivo>
+module: <módulo(s) afectados, ej: mobile / routes / backend / infra / backoffice>
+author: <sheldon | homero | edna | tio-bob | gorgory | contador | saul | profesor | humano>
+date: YYYY-MM-DD
+status: Pending | In Progress | Done | Blocked | Rejected | Deprecated
+priority: P0 | P1 | P2 | P3
+scope: "[MVP]" | "[Phase N]" | "[Backlog]"
+source: <ruta al plan/especificación de origen, ej: plan/TAG.md o tarea>
+---
+```
+
+#### Diccionario de Campos y Valores Permitidos
+
+| Campo | Tipo / Formato | Requerido | Valores Admitidos / Ejemplos |
+| :--- | :--- | :---: | :--- |
+| `title` | `String` | Sí | Identificador y título descriptivo (ej. `AUTH-SESSION — Refactor de tokens`) |
+| `module` | `String` | Sí | Módulos afectados (ej. `mobile`, `routes`, `backend`, `infra`, `backoffice`) |
+| `author` | `Enum / String` | Sí | `sheldon`, `homero`, `edna`, `tio-bob`, `gorgory`, `contador`, `saul`, `profesor`, `humano` |
+| `date` | `YYYY-MM-DD` | Sí | Fecha de creación o última modificación (ej. `2026-09-30`) |
+| `status` | `Enum` | Sí | `Pending`, `In Progress`, `Done`, `Blocked`, `Rejected`, `Deprecated` |
+| `priority` | `Enum` | Sí | `P0` *(Crítico/Bloqueante)*, `P1` *(Alto)*, `P2` *(Medio)*, `P3` *(Bajo)* |
+| `scope` | `String` | Opcional | Alcance del cambio (ej. `"[MVP]"`, `"[Phase 1]"`, `"[Phase 2]"`, `"[Backlog]"`) |
+| `source` | `String` | Opcional | Origen del documento (ej. `plan/TAG.md`, `ticket #104`, `auditoría`) |
+
+### Formato Alternativo: Tabla de Metadatos (GFM Header Table)
+
+Roz también admite de forma retrocompatible la declaración de metadatos mediante una tabla GFM al comienzo del archivo:
+
+```markdown
+# CAR-CONNECT — Especificación funcional y técnica
+
+| Field | Value |
+| :--- | :--- |
+| **Status** | Pending |
+| **Priority** | P1 |
+| **Module** | mobile / native |
+| **Scope** | [Phase 2] |
+| **Author** | sheldon |
+| **Date** | 2026-09-29 |
+```
+
+> [!NOTE]
+> Cuando se actualiza el estado o se realizan modificaciones desde la interfaz de Roz, el motor detecta automáticamente el formato existente en el archivo (YAML frontmatter o tabla GFM) y preserva su estructura original.
+
+---
+
 ## Quick Start
 
 ### Requisitos Previos
