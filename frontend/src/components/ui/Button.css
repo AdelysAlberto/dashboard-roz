@@ -1,0 +1,179 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Sizes */
+.btn-xs {
+  padding: 0.25rem 0.45rem;
+  font-size: 0.75rem;
+}
+
+.btn-sm {
+  padding: 0.4rem 0.65rem;
+  font-size: 0.825rem;
+}
+
+.btn-md {
+  padding: 0.55rem 0.95rem;
+  font-size: 0.875rem;
+}
+
+.btn-lg {
+  padding: 0.75rem 1.25rem;
+  font-size: 1rem;
+}
+
+/* Variants */
+.btn-primary {
+  background-color: var(--accent);
+  color: var(--text-inverse);
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.btn-secondary {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-strong);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+}
+.btn-outline:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.btn-danger {
+  background-color: var(--color-rejected-bg);
+  border: 1px solid var(--color-rejected-border);
+  color: var(--color-rejected);
+}
+.btn-danger:hover:not(:disabled) {
+  background-color: var(--color-rejected);
+  color: #ffffff;
+}
+
+.btn-success {
+  background-color: var(--color-done-bg);
+  border: 1px solid var(--color-done-border);
+  color: var(--color-done);
+}
+.btn-success:hover:not(:disabled) {
+  background-color: var(--color-done);
+  color: #ffffff;
+}
+
+/* Status variants */
+.btn-status-pending {
+  background-color: var(--color-pending-bg);
+  border: 1px solid var(--color-pending-border);
+  color: var(--color-pending);
+}
+.btn-status-pending:hover:not(:disabled) {
+  background-color: var(--color-pending);
+  color: #ffffff;
+}
+
+.btn-status-in-progress {
+  background-color: var(--color-in-progress-bg);
+  border: 1px solid var(--color-in-progress-border);
+  color: var(--color-in-progress);
+}
+.btn-status-in-progress:hover:not(:disabled) {
+  background-color: var(--color-in-progress);
+  color: #ffffff;
+}
+
+.btn-status-done {
+  background-color: var(--color-done-bg);
+  border: 1px solid var(--color-done-border);
+  color: var(--color-done);
+}
+.btn-status-done:hover:not(:disabled) {
+  background-color: var(--color-done);
+  color: #ffffff;
+}
+
+.btn-status-blocked {
+  background-color: var(--color-blocked-bg);
+  border: 1px solid var(--color-blocked-border);
+  color: var(--color-blocked);
+}
+.btn-status-blocked:hover:not(:disabled) {
+  background-color: var(--color-blocked);
+  color: #ffffff;
+}
+
+.btn-status-rejected {
+  background-color: var(--color-rejected-bg);
+  border: 1px solid var(--color-rejected-border);
+  color: var(--color-rejected);
+}
+.btn-status-rejected:hover:not(:disabled) {
+  background-color: var(--color-rejected);
+  color: #ffffff;
+}
+
+.btn-status-deprecated {
+  background-color: var(--color-deprecated-bg);
+  border: 1px solid var(--color-deprecated-border);
+  color: var(--color-deprecated);
+}
+.btn-status-deprecated:hover:not(:disabled) {
+  background-color: var(--color-deprecated);
+  color: #ffffff;
+}
+
+/* Spinner */
+.btn-spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.btn-icon-left, .btn-icon-right {
+  display: inline-flex;
+  align-items: center;
+}

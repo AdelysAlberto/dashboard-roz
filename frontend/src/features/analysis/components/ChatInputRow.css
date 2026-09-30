@@ -1,0 +1,12 @@
+.chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1.25rem;
+  background-color: var(--bg-card);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.chat-input-control {
+  flex: 1;
+}

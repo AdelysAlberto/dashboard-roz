@@ -1,0 +1,131 @@
+.scan-paths-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.scan-paths-intro {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.scan-paths-intro code {
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+
+.section-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin-bottom: 0.45rem;
+}
+
+.roots-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.root-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.65rem;
+}
+
+.root-item-path {
+  font-size: 0.8rem;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.no-roots-msg {
+  font-size: 0.825rem;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
+.add-root-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.recent-paths-section {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.recent-chips-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.recent-chip {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.recent-chip:hover {
+  border-color: var(--border-strong);
+}
+
+.recent-chip-btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.recent-chip-btn:hover:not(:disabled) {
+  color: var(--text-main);
+}
+
+.recent-chip-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.active-dot {
+  color: var(--color-done);
+  font-weight: bold;
+}
+
+.recent-chip-remove {
+  padding: 0.25rem 0.4rem;
+  color: var(--text-dim);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+}
+
+.recent-chip-remove:hover {
+  color: var(--color-rejected);
+  background-color: var(--color-rejected-bg);
+}

@@ -1,0 +1,61 @@
+.select-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.select-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.select-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.select-box:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.select-control {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  padding: 0.48rem 2rem 0.48rem 0.65rem;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  background: transparent;
+  cursor: pointer;
+}
+
+.select-control option {
+  background-color: var(--bg-card);
+  color: var(--text-main);
+}
+
+.select-arrow {
+  position: absolute;
+  right: 0.65rem;
+  pointer-events: none;
+  color: var(--text-dim);
+}
+
+.select-has-error .select-box {
+  border-color: var(--color-rejected);
+}
+
+.select-error-msg {
+  font-size: 0.75rem;
+  color: var(--color-rejected);
+}

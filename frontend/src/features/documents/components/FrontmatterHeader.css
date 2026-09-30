@@ -1,0 +1,135 @@
+.fm-header {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.fm-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.fm-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fm-title {
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+  line-height: 1.25;
+}
+
+.fm-filename {
+  font-size: 0.775rem;
+  color: var(--text-dim);
+}
+
+.fm-top-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.fm-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.fm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.775rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.55rem;
+  color: var(--text-muted);
+}
+
+.fm-chip-icon {
+  display: flex;
+  color: var(--accent);
+}
+
+.fm-chip-label {
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: capitalize;
+}
+
+.fm-chip-value {
+  color: var(--text-main);
+  font-family: var(--font-mono);
+}
+
+.fm-raw-yaml {
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fm-raw-yaml-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.725rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.fm-raw-yaml pre {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  overflow-x: auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.fm-description {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  background-color: var(--bg-sidebar);
+  border-left: 3px solid var(--accent);
+  padding: 0.65rem 0.95rem;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.fm-description p {
+  margin: 0;
+}
+
+.fm-path {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.775rem;
+  color: var(--text-dim);
+  background-color: var(--bg-input);
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
