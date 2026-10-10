@@ -31,6 +31,19 @@ def _tag_of(task: str) -> str:
     return m.group(1).upper() if m else ""
 
 
+def _fmt_model(raw: str | None) -> tuple[str, str]:
+    """Parse session_v2.model JSON → (model_id, provider_id). Empty on failure."""
+    if not raw:
+        return ("", "")
+    try:
+        d = json.loads(raw)
+        if isinstance(d, dict):
+            return (str(d.get("id") or ""), str(d.get("providerID") or ""))
+    except Exception:  # noqa: BLE001
+        pass
+    return (str(raw)[:64], "")
+
+
 def _live_opencode_pids() -> list[int]:
     try:
         out = subprocess.run(
@@ -132,15 +145,26 @@ class OpenCodeAgentProvider(BaseAgentProvider):
                     title = (r["title"] or "").strip()
                     t_created_ms = r["time_created"] or 0
                     t_updated_ms = r["time_updated"] or t_created_ms
+                    idle_outcome = r["idle_outcome"]
+                    msg_row = cur.execute(
+                        "SELECT count(*) as c, max(time_updated) as last_act FROM session_message WHERE session_id = ?",
+                        (sid,),
+                    ).fetchone()
+                    msg_count = msg_row["c"] if msg_row else 0
+                    last_act_ms = (msg_row["last_act"] if msg_row else None) or 0
 
-                    idle_sec = max(0, int(now_sec - (t_updated_ms / 1000.0))) if t_updated_ms else 0
+                    # session_v2.time_updated lags behind real activity while the
+                    # agent is streaming/executing tools; trust message activity.
+                    eff_updated_ms = max(t_updated_ms, last_act_ms)
+                    if not eff_updated_ms:
+                        idle_sec = 0
+                    else:
+                        idle_sec = max(0, int(now_sec - (eff_updated_ms / 1000.0)))
 
                     kind = "subagent" if (parent_id or (agent and agent not in ("primary", "build", "sesión"))) else "primary"
                     if not agent:
                         agent = "sesión" if kind == "primary" else "subagent"
 
-                    # Calculate state
-                    idle_outcome = r["idle_outcome"]
                     if not has_live_service or idle_sec > (24 * 3600):
                         state = "ended"
                     elif idle_sec > STALL_SECONDS:
@@ -149,12 +173,6 @@ class OpenCodeAgentProvider(BaseAgentProvider):
                         state = "ended" if (idle_outcome and idle_sec > 60) else "quiet"
                     else:
                         state = "active"
-
-                    # Messages count & last activity from session_message
-                    msg_count_row = cur.execute(
-                        "SELECT count(*) as c FROM session_message WHERE session_id = ?", (sid,)
-                    ).fetchone()
-                    msg_count = msg_count_row["c"] if msg_count_row else 0
 
                     # Determine best task description
                     task_text = title if (title and not title.startswith("New session -")) else ""
@@ -230,6 +248,7 @@ class OpenCodeAgentProvider(BaseAgentProvider):
                         + (r["tokens_reasoning"] or 0)
                     )
                     cost = float(r["cost"] or 0.0)
+                    model_id, model_provider = _fmt_model(r["model"])
                     project_name = os.path.basename(os.path.abspath(directory).rstrip("/")) if directory else ""
 
                     out.append(
@@ -241,6 +260,8 @@ class OpenCodeAgentProvider(BaseAgentProvider):
                             "cwd": directory,
                             "project": project_name,
                             "agent": agent,
+                            "model": model_id,
+                            "model_provider": model_provider,
                             "task": task_text.strip()[:200],
                             "task_tag": _tag_of(task_text),
                             "state": state,
@@ -303,6 +324,7 @@ class OpenCodeAgentProvider(BaseAgentProvider):
                     state = "ended"
                     tokens_total = int((r["tokens_input"] or 0) + (r["tokens_output"] or 0))
                     cost = float(r["cost"] or 0.0)
+                    model_id, model_provider = _fmt_model(r["model"])
                     project_name = os.path.basename(os.path.abspath(directory).rstrip("/")) if directory else ""
 
                     out.append(
@@ -314,6 +336,8 @@ class OpenCodeAgentProvider(BaseAgentProvider):
                             "cwd": directory,
                             "project": project_name,
                             "agent": agent,
+                            "model": model_id,
+                            "model_provider": model_provider,
                             "task": title.strip()[:200],
                             "task_tag": _tag_of(title),
                             "state": state,

@@ -14,11 +14,14 @@ export interface SubagentSession {
   kind: 'primary' | 'subagent';
   agent: string;
   project?: string;
+  model?: string;
+  model_provider?: string;
   task: string;
   task_tag?: string;
   state: SubagentState;
   messages: number;
   tokens: number;
+  cost?: number;
   idle_seconds: number;
   last_activity: string;
   pid?: number;

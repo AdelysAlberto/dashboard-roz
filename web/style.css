@@ -138,6 +138,7 @@ input:focus:not(:focus-visible), textarea:focus:not(:focus-visible), select:focu
 .badge.rejected { background: #cf222e1a; color: var(--red); }
 .badge.active { background: #1f6feb1a; color: var(--cyan-strong); }
 .badge.deprecated { background: #8b949e1a; color: #8b949e; }
+.badge.manual { background: #1f6feb1a; color: var(--cyan-strong); }
 
 /* ── center ── */
 #empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); }
@@ -203,6 +204,8 @@ input:focus:not(:focus-visible), textarea:focus:not(:focus-visible), select:focu
 .sbtn:hover { border-color: var(--cyan-strong); }
 .sbtn.ok:hover { border-color: var(--green); color: var(--green); }
 .sbtn.bad:hover { border-color: var(--red); color: var(--red); }
+.sbtn:disabled { opacity: .4; cursor: not-allowed; }
+.sbtn:disabled:hover { border-color: initial; }
 .current-status { margin-top: 6px; font-size: 11px; color: var(--muted); }
 .file-row { display: flex; gap: 6px; }
 #src-path { color: var(--muted); background: var(--bg); cursor: default; font-size: 10.5px; }
@@ -325,6 +328,7 @@ input:focus:not(:focus-visible), textarea:focus:not(:focus-visible), select:focu
 .mon-row1 { display: flex; align-items: center; gap: 8px; }
 .mon-agent { font-weight: 700; font-size: 13px; color: var(--cyan-strong, var(--text)); }
 .mon-task-line { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mon-model { font-size: 10px; font-family: var(--mono, monospace); color: var(--cyan, #00e5ff); opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mon-activity {
   font-size: 10px; font-family: var(--mono, monospace); color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

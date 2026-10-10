@@ -20,6 +20,7 @@ export function useFilteredDocs(docs: DocItem[] = []) {
       blocked: 0,
       rejected: 0,
       deprecated: 0,
+      manual: 0,
       none: 0,
     };
     const rootsSet = new Set<string>();

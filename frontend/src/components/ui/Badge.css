@@ -76,6 +76,12 @@
   color: var(--color-deprecated);
 }
 
+.badge-manual {
+  background-color: var(--accent-glow);
+  border: 1px solid var(--border-focus);
+  color: var(--accent);
+}
+
 .badge-neutral {
   background-color: var(--bg-hover);
   border: 1px solid var(--border-subtle);

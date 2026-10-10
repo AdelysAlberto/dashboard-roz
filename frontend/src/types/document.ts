@@ -6,6 +6,7 @@ export type StatusType =
   | 'blocked'
   | 'rejected'
   | 'deprecated'
+  | 'manual'
   | 'none';
 
 export interface DocItem {

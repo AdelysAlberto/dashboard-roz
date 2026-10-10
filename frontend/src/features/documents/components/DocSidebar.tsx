@@ -74,6 +74,7 @@ export const DocSidebar: React.FC = () => {
               <option value="blocked">⛔ Blocked ({countsByStatus.blocked || 0})</option>
               <option value="rejected">✗ Rejected ({countsByStatus.rejected || 0})</option>
               <option value="deprecated">⊘ Deprecated ({countsByStatus.deprecated || 0})</option>
+              <option value="manual">📖 Manual ({countsByStatus.manual || 0})</option>
               <option value="none">No Status ({countsByStatus.none || 0})</option>
             </Select>
           </div>

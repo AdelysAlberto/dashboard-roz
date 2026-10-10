@@ -11,6 +11,7 @@ export type BadgeVariant =
   | 'blocked'
   | 'rejected'
   | 'deprecated'
+  | 'manual'
   | 'none'
   | 'info'
   | 'purple'
@@ -25,6 +26,7 @@ export interface BadgeProps {
   size?: BadgeSize;
   className?: string;
   dot?: boolean;
+  title?: string;
 }
 
 export const Badge: React.FC<BadgeProps> = ({
@@ -33,10 +35,11 @@ export const Badge: React.FC<BadgeProps> = ({
   size = 'sm',
   className = '',
   dot = false,
+  title,
 }) => {
   const normalizedVariant = String(variant).toLowerCase().trim().replace(/[\s_]+/g, '-');
   return (
-    <span className={`badge badge-${normalizedVariant} badge-${size} ${className}`}>
+    <span className={`badge badge-${normalizedVariant} badge-${size} ${className}`} title={title}>
       {dot && <span className="badge-dot" />}
       {children}
     </span>

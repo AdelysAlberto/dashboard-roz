@@ -17,9 +17,11 @@ export const MonitorPane: React.FC = () => {
   const [providerFilter, setProviderFilter] = useState<'all' | 'pi' | 'opencode'>('all');
 
   if (selectedSession) {
+    // Keep the detail header live: re-resolve from the polling list by path
+    const live = sessions.find((s) => s.path === selectedSession.path) || selectedSession;
     return (
       <SessionDetail
-        session={selectedSession}
+        session={live}
         onBack={() => setSelectedSession(null)}
       />
     );

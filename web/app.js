@@ -84,7 +84,7 @@ function renderList() {
 
   const filtered = state.docs.filter((d) => {
     if (state.filter === "none" && d.status) return false;
-    if (["active", "pending", "done", "rejected", "deprecated"].includes(state.filter) && d.status !== state.filter) return false;
+    if (["active", "pending", "done", "rejected", "deprecated", "manual"].includes(state.filter) && d.status !== state.filter) return false;
     if (q && !(d.title + " " + d.name + " " + (d.description || "")).toLowerCase().includes(q)) return false;
     return true;
   });
@@ -125,6 +125,9 @@ async function selectDoc(d) {
   $("#actions").hidden = false;
   $("#actions-empty").hidden = true;
   $("#current-status").innerHTML = d.status ? `current: <span class="badge ${d.status}">${d.status}</span>` : "current: <i>no status field</i>";
+  const isManual = d.status === "manual";
+  $$(".sbtn").forEach((b) => { b.disabled = isManual; });
+  $("#status-locked-note").hidden = !isManual;
   $("#src-path").value = d.path;
   $("#move-dest").placeholder = d.parent || "destination directory…";
   if (!$("#move-dest").value && state.config?.done_dir) $("#move-dest").value = state.config.done_dir;
@@ -228,6 +231,7 @@ function renderMonitorGrid() {
         ${s.task_tag ? `<span class="badge">${esc(s.task_tag)}</span>` : ""}
         ${s.kind === "primary" ? `<span class="badge">session</span>` : ""}
       </div>
+      ${s.model ? `<div class="mon-model">⛁ ${esc(s.model)}</div>` : ""}
       <div class="mon-task-line">${esc(s.task.slice(0, 140))}</div>
       <div class="mon-activity">${esc(s.last_activity.slice(0, 120))}</div>
       <div class="mon-meta">${s.messages} msgs · ${fmtTokens(s.tokens)} tok · hace ${fmtAge(s.idle_seconds)}</div>`;

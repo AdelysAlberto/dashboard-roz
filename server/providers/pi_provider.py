@@ -197,11 +197,16 @@ def _summarize_session(path: Path, pid: int | None, name_map: list[dict], *, kin
     msgs = 0
     tokens = 0
     cost = 0.0
+    model_id = ""
+    model_provider = ""
     for d in _iter_entries(path):
         if d.get("type") == "session":
             header = d
             continue
         m = d.get("message")
+        if d.get("type") == "model_change" and d.get("modelId"):
+            model_id = str(d["modelId"])
+            model_provider = str(d.get("provider") or "")
         if not m:
             continue
         msgs += 1
@@ -214,6 +219,9 @@ def _summarize_session(path: Path, pid: int | None, name_map: list[dict], *, kin
         if role == "user" and not task:
             task = _text_of(m.get("content"))
         if role == "assistant":
+            if m.get("model"):
+                model_id = str(m["model"])
+                model_provider = str(m.get("provider") or "")
             for c in m.get("content") or []:
                 if not isinstance(c, dict):
                     continue
@@ -262,6 +270,8 @@ def _summarize_session(path: Path, pid: int | None, name_map: list[dict], *, kin
         "cwd": cwd_val,
         "project": project_val,
         "agent": agent or ("sesión" if kind == "primary" else "—"),
+        "model": model_id,
+        "model_provider": model_provider,
         "task": task.strip()[:200],
         "task_tag": _tag_of(task),
         "state": state,
@@ -325,6 +335,8 @@ class PiAgentProvider(BaseAgentProvider):
                 steps = status.get("steps") or []
                 s0 = steps[0] if steps else {}
                 agent = s0.get("agent") or status.get("agent") or "subagent"
+                model_id = str(status.get("modelId") or status.get("model") or s0.get("modelId") or s0.get("model") or "")
+                model_provider = str(status.get("provider") or s0.get("provider") or "")
 
                 task = ""
                 if events_file.exists():
@@ -379,6 +391,8 @@ class PiAgentProvider(BaseAgentProvider):
                         "cwd": cwd,
                         "project": os.path.basename(os.path.abspath(cwd).rstrip("/")) if cwd else "unknown",
                         "agent": agent,
+                        "model": model_id,
+                        "model_provider": model_provider,
                         "task": task.strip()[:200],
                         "task_tag": _tag_of(task),
                         "state": state,

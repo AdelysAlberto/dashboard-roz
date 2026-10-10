@@ -57,6 +57,11 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, onBack })
           <Badge variant={session.provider === 'opencode' ? 'opencode' : 'pi'} size="xs">
             {session.provider === 'opencode' ? 'OpenCode' : 'Pi'}
           </Badge>
+          {session.model && (
+            <Badge variant="info" size="xs" className="font-mono" title={session.model_provider || undefined}>
+              {session.model}
+            </Badge>
+          )}
           {session.pid && <span className="detail-pid font-mono">PID {session.pid}</span>}
           {session.task_tag && <Badge variant="purple" size="xs">{session.task_tag}</Badge>}
           <Badge variant={session.state === 'active' ? 'done' : session.state === 'stalled' ? 'rejected' : 'pending'} size="xs">

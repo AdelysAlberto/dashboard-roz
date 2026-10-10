@@ -85,6 +85,17 @@ export const ActionSidebar: React.FC = () => {
       {/* 1. Status Section */}
       <section className="action-section">
         <div className="section-title">Status Management</div>
+        {selectedDoc.status === 'manual' ? (
+          <div className="status-manual-notice">
+            <Badge variant="manual" size="sm" dot>
+              manual
+            </Badge>
+            <p>
+              Reference manual — its status is locked and does not follow the document workflow. Edit
+              the frontmatter directly to change it.
+            </p>
+          </div>
+        ) : (
         <div className="status-grid">
           <Button
             variant="status-pending"
@@ -141,6 +152,7 @@ export const ActionSidebar: React.FC = () => {
             Deprecated
           </Button>
         </div>
+        )}
         <div className="status-current-badge">
           <span>Current:</span>
           {selectedDoc.status ? (

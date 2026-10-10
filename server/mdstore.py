@@ -21,6 +21,9 @@ STATUS_VALUES = (
     "blocked",
     "rejected",
     "deprecated",
+    # Reference manuals/guides: living documents with no workflow lifecycle.
+    # A manual is status-locked: it can only be changed by editing the file.
+    "manual",
 )
 
 _lock = threading.Lock()
@@ -282,6 +285,12 @@ def set_status(path: str, status: str) -> dict:
     if status not in STATUS_VALUES:
         raise ValueError(f"status must be one of {STATUS_VALUES}")
     fp = _safe_file(path)
+    current = parse_document(fp)["status"]
+    if current == "manual" and status != "manual":
+        raise ValueError(
+            "This document is a manual (status: manual) and is locked: "
+            "edit the frontmatter directly to change its status"
+        )
     text = fp.read_text(encoding="utf-8")
 
     # 1) YAML frontmatter
