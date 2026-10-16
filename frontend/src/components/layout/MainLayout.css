@@ -43,6 +43,11 @@
   overflow: hidden;
 }
 
+/* Services board: no doc sidebar and no actions panel, the cards take the width. */
+.main-grid-container.grid-services {
+  grid-template-columns: 1fr;
+}
+
 /* Responsive collapse on smaller windows */
 @media (max-width: 1100px) {
   .main-grid-container {
@@ -56,5 +61,11 @@
   }
   .column-right {
     display: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .main-grid-container.grid-services {
+    grid-template-columns: 1fr;
   }
 }

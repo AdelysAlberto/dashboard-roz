@@ -17,7 +17,7 @@ fi
 
 # Read host/port without letting bash re-parse the whole .env (dotenv loads it in Python)
 HOST=$(.venv/bin/python -c "from dotenv import dotenv_values; print(dotenv_values('.env').get('ROZ_HOST','127.0.0.1'))" 2>/dev/null || echo 127.0.0.1)
-PORT=$(.venv/bin/python -c "from dotenv import dotenv_values; print(dotenv_values('.env').get('ROZ_PORT','8756'))" 2>/dev/null || echo 8756)
+PORT=$(.venv/bin/python -c "from dotenv import dotenv_values; print(dotenv_values('.env').get('ROZ_PORT','8036'))" 2>/dev/null || echo 8036)
 
 if [ -f .roz.pid ] && kill -0 "$(cat .roz.pid)" 2>/dev/null; then
   echo "[roz] already running (pid $(cat .roz.pid)) → http://$HOST:$PORT"

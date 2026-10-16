@@ -103,17 +103,23 @@ FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 TABLE_ROW_RE = re.compile(r"^(\|[^|\n]+\|)\s*([A-Za-z _-]+?)\s*\|\s*(.*?)\s*\|?\s*$")
 
 
-def _parse_frontmatter(text: str) -> tuple[dict | None, str]:
+def _parse_frontmatter(text: str) -> tuple[dict | None, str, str | None]:
+    """Devuelve (data, resto, error). `error` explica por qué se descartó el bloque:
+    un frontmatter con YAML inválido (p. ej. un título con `: ` sin comillas) se ignora
+    en silencio hoy, y eso hace que el estado “efectivo” salga de la tabla GFM."""
     m = FRONTMATTER_RE.match(text)
     if not m:
-        return None, text
+        return None, text, None
     try:
         data = yaml.safe_load(m.group(1))
-    except yaml.YAMLError:
-        return None, text
+    except yaml.YAMLError as e:
+        detail = str(getattr(e, "problem", None) or e).strip()
+        mark = getattr(e, "problem_mark", None)
+        where = f" (línea {mark.line + 1} del bloque)" if mark is not None else ""
+        return None, text, f"YAML inválido en el frontmatter{where}: {detail}"
     if not isinstance(data, dict):
-        return None, text
-    return data, text[m.end():]
+        return None, text, "el frontmatter no es un mapping YAML"
+    return data, text[m.end():], None
 
 
 def _parse_header_table(text: str) -> tuple[dict | None, list[tuple[int, int]]]:
@@ -154,7 +160,7 @@ def parse_document(fp: Path) -> dict:
     meta: dict = {}
     body = text
 
-    fm, rest = _parse_frontmatter(text)
+    fm, rest, fm_error = _parse_frontmatter(text)
     if fm:
         meta = {str(k): _flatten(v) for k, v in fm.items()}
         body = rest
@@ -230,6 +236,7 @@ def parse_document(fp: Path) -> dict:
         "scope": get("scope", "alcance"),
         "source": get("source"),
         "has_frontmatter": fm is not None,
+        "frontmatter_error": fm_error,
         "raw_meta": meta,
         "description": clean_description(body),
     }
@@ -280,20 +287,48 @@ def scan_all() -> list[dict]:
 
 # ── actions ────────────────────────────────────────────────────────────
 
+_STATUS_DISPLAY = {
+    "pending": "Pending",
+    "in progress": "In Progress",
+    "in_progress": "In Progress",
+    "done": "Done",
+    "blocked": "Blocked",
+    "rejected": "Rejected",
+    "deprecated": "Deprecated",
+    "manual": "Manual",
+}
+_TABLE_STATUS_RE = re.compile(r"^(\s*\|\s*[Ss]tatus\s*\|\s*)([^|]*)(\|\s*)$")
+
+
+def _set_status_in_table(text: str, status: str) -> tuple[str, bool]:
+    """Actualiza la fila `| Status | ... |` conservando el ancho de la columna."""
+    display = _STATUS_DISPLAY.get(status, status)
+    lines = text.splitlines(keepends=True)
+    for i, line in enumerate(lines[:60]):
+        m = _TABLE_STATUS_RE.match(line.rstrip("\n"))
+        if not m:
+            continue
+        width = len(m.group(2))
+        lines[i] = f"{m.group(1)}{display.ljust(width)}{m.group(3)}\n"
+        return "".join(lines), True
+    return text, False
+
+
 def set_status(path: str, status: str) -> dict:
     status = status.strip().lower()
     if status not in STATUS_VALUES:
         raise ValueError(f"status must be one of {STATUS_VALUES}")
     fp = _safe_file(path)
-    current = parse_document(fp)["status"]
-    if current == "manual" and status != "manual":
+    parsed = parse_document(fp)
+    if parsed["status"] == "manual" and status != "manual":
         raise ValueError(
             "This document is a manual (status: manual) and is locked: "
             "edit the frontmatter directly to change its status"
         )
     text = fp.read_text(encoding="utf-8")
+    touched_frontmatter = False
 
-    # 1) YAML frontmatter
+    # 1) YAML frontmatter (regex: se reescribe la línea aunque el YAML tenga otros errores)
     m = FRONTMATTER_RE.match(text)
     if m:
         block = m.group(1)
@@ -304,19 +339,17 @@ def set_status(path: str, status: str) -> dict:
         if not new_block.endswith("\n"):
             new_block += "\n"
         text = f"---\n{new_block}---\n" + text[m.end():]
-        fp.write_text(text, encoding="utf-8")
-        return parse_document(fp)
+        touched_frontmatter = True
 
-    # 2) Header table row  | Status | ... |
-    lines = text.splitlines(keepends=True)
-    for i, line in enumerate(lines[:40]):
-        if re.match(r"^\|\s*status\s*\|", line.strip(), re.IGNORECASE):
-            lines[i] = re.sub(r"^(\|\s*[Ss]tatus\s*\|)\s*[^|\n]*\|", rf"\g<1> {status} |", line.rstrip("\n")) + "\n"
-            fp.write_text("".join(lines), encoding="utf-8")
-            return parse_document(fp)
+    # 2) La tabla GFM se actualiza SIEMPRE que exista: si no, el documento queda con dos
+    #    estados contradictorios (frontmatter `done` + tabla `Pending`) y el efectivo pasa a
+    #    ser el de la tabla, porque un frontmatter inválido se descarta al parsear.
+    text, touched_table = _set_status_in_table(text, status)
 
-    # 3) Neither: inject a minimal frontmatter at the top
-    text = f"---\nstatus: {status}\n---\n\n" + text
+    # 3) Ninguna de las dos: se inyecta un frontmatter mínimo
+    if not touched_frontmatter and not touched_table:
+        text = f"---\nstatus: {status}\n---\n\n" + text
+
     fp.write_text(text, encoding="utf-8")
     return parse_document(fp)
 
@@ -384,11 +417,12 @@ def validate_all() -> dict:
             issues.append({"type": "unreadable", "path": str(fp), "detail": str(e)})
             continue
         if text.startswith("---"):
-            fm, _ = _parse_frontmatter(text)
+            fm, _, fm_error = _parse_frontmatter(text)
             if fm is None:
                 issues.append({
                     "type": "frontmatter_malformed", "path": str(fp),
-                    "detail": "YAML block not closed on its own line or not a mapping",
+                    "detail": fm_error
+                    or "YAML block not closed on its own line or not a mapping",
                 })
                 continue
             status = str(fm.get("status", "")).strip().lower()

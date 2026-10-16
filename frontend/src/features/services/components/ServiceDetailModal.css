@@ -1,0 +1,188 @@
+.svc-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.svc-description {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+/* ── Meta ─────────────────────────────────────────────────── */
+
+.svc-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  background-color: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+}
+
+.svc-meta-row {
+  display: flex;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.svc-meta-row dt {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  width: 3.2rem;
+}
+
+.svc-meta-row dd {
+  margin: 0;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Units table ──────────────────────────────────────────── */
+
+.svc-units {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.svc-units th,
+.svc-units td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.svc-units thead th {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.svc-units tbody th {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.svc-units td {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.svc-unit-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  justify-content: flex-end;
+}
+
+/* State dots come from service-status.css. */
+
+/* ── Sections ─────────────────────────────────────────────── */
+
+.svc-section-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.svc-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* ── Action output ────────────────────────────────────────── */
+
+.svc-output {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.75rem;
+}
+
+.svc-step + .svc-step {
+  margin-top: 0.6rem;
+}
+
+.svc-step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.svc-step-label {
+  font-weight: 600;
+}
+
+.svc-step-meta {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.svc-command {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--accent);
+  background-color: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius-xs);
+  padding: 0.3rem 0.5rem;
+  margin-top: 0.25rem;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.svc-stream {
+  margin: 0.3rem 0 0;
+  padding: 0.45rem 0.55rem;
+  max-height: 180px;
+  overflow: auto;
+  background-color: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+
+.svc-stream-err {
+  color: var(--color-rejected);
+  border-color: var(--color-rejected-border);
+}
+
+/* ── Docs ─────────────────────────────────────────────────── */
+
+.svc-docs {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.75rem;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.svc-docs-loading {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}

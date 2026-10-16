@@ -1,5 +1,4 @@
 import {
-  AlertCircle,
   Calendar,
   Code2,
   FileText,
@@ -72,6 +71,17 @@ export const FrontmatterHeader: React.FC<FrontmatterHeaderProps> = ({
 
   return (
     <div className="fm-header">
+      {typeof doc.frontmatter_error === 'string' && doc.frontmatter_error !== '' && (
+        <p className="fm-error" role="alert">
+          <ShieldAlert size={13} aria-hidden="true" />
+          <span>
+            <strong>Frontmatter inválido:</strong> {doc.frontmatter_error}. Su metadata se está
+            ignorando (estado, prioridad y módulo pueden salir de otro lado), y los botones de
+            estado escribirán en el YAML igual. Arreglá el bloque para que el documento sea
+            consistente.
+          </span>
+        </p>
+      )}
       {/* Title + Status */}
       <div className="fm-top">
         <div className="fm-title-group">

@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Button } from './Button';
 import './Modal.css';
 
@@ -22,6 +22,20 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'md',
   className = '',
 }) => {
+  const overlayPressStarted = useRef(false);
+
+  const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    overlayPressStarted.current = e.target === e.currentTarget;
+  };
+
+  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const startedOnOverlay = overlayPressStarted.current;
+    overlayPressStarted.current = false;
+    if (e.target === e.currentTarget && startedOnOverlay) {
+      onClose();
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -38,7 +52,7 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onMouseDown={handleOverlayMouseDown} onClick={handleOverlayClick}>
       <div
         className={`modal-container modal-${size} ${className}`}
         onClick={(e) => e.stopPropagation()}

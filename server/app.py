@@ -15,9 +15,11 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from server import mdstore, monitor, pilot  # noqa: E402
+from server import engines_api, mdstore, monitor, pilot, services_api  # noqa: E402
 
 app = FastAPI(title="roz")
+app.include_router(services_api.router)
+app.include_router(engines_api.router)
 
 WEB = BASE / "web"
 

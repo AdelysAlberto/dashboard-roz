@@ -1,0 +1,286 @@
+.engine-panel {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.75rem;
+}
+
+.engine-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.engine-tabs {
+  display: flex;
+  gap: 0.2rem;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.15rem;
+}
+
+.engine-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.725rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.engine-tab:hover {
+  color: var(--text-main);
+}
+
+.engine-tab-active {
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.engine-tab-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.engine-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.engine-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.engine-section h5 {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.engine-muted {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+.engine-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-rejected);
+}
+
+/* ── inventario de modelos ────────────────────────────────── */
+
+.engine-models,
+.engine-hf,
+.engine-tasks,
+.engine-kv {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.engine-model,
+.engine-hf li,
+.engine-tasks li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-input);
+  font-size: 0.75rem;
+}
+
+.engine-model.is-loaded {
+  border-color: var(--color-done-border);
+  background-color: var(--color-done-bg);
+}
+
+.engine-model-name {
+  color: var(--text-main);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.engine-model-meta {
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.engine-model-state {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-done);
+  min-width: 4rem;
+  text-align: right;
+}
+
+.engine-model-actions {
+  display: flex;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.engine-inline-form,
+.engine-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.engine-progress {
+  width: 120px;
+  height: 6px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.engine-tasks li {
+  justify-content: space-between;
+}
+
+/* ── formularios y clave/valor ────────────────────────────── */
+
+.engine-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.4rem 0.6rem;
+}
+
+.engine-form-wide {
+  grid-template-columns: 1fr;
+}
+
+.engine-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+}
+
+.engine-kv li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.6875rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px dashed var(--border-subtle);
+}
+
+.engine-kv li span:first-child {
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.engine-kv-value {
+  color: var(--text-muted);
+  text-align: right;
+  word-break: break-word;
+}
+
+.engine-group {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.5rem;
+  background-color: var(--bg-input);
+}
+
+.engine-group summary {
+  cursor: pointer;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.engine-logs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* ── Whisper STT: estado del modelo residente ─────────────── */
+
+.stt-state {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-size: 0.625rem;
+  letter-spacing: 0.03em;
+}
+
+.stt-state-on {
+  color: var(--color-done);
+}
+
+.engine-pre {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  max-height: 260px;
+  overflow: auto;
+  background-color: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+
+.engine-tab-body code {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--accent);
+}
+
+/* ── Kokoro: prueba de voces ───────────────────────────────── */
+
+.kokoro-voice-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.kokoro-voice-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.kokoro-audio {
+  width: 100%;
+  height: 36px;
+  margin-top: 0.2rem;
+}

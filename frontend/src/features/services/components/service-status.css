@@ -1,0 +1,64 @@
+/* Single source of truth for how a service/unit state looks. Shared by the
+   board cards and the detail modal. */
+
+.state-dot,
+.unit-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  background-color: var(--text-dim);
+}
+
+.state-dot.dot-on,
+.unit-dot.dot-up {
+  background-color: var(--color-done);
+  box-shadow: 0 0 0 3px var(--color-done-bg);
+}
+
+.state-dot.dot-partial,
+.unit-dot.dot-partial,
+.unit-dot.dot-booting {
+  background-color: var(--color-pending);
+  animation: service-pulse 1.8s ease-in-out infinite;
+}
+
+.unit-dot.dot-unexpected {
+  background-color: var(--color-rejected);
+}
+
+.unit-dot.dot-down {
+  background-color: var(--text-dim);
+}
+
+@keyframes service-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.unit-state {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+}
+
+.unit-state-up {
+  color: var(--color-done);
+}
+
+.unit-state-partial,
+.unit-state-booting {
+  color: var(--color-pending);
+}
+
+.unit-state-unexpected {
+  color: var(--color-rejected);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state-dot,
+  .unit-dot {
+    animation: none;
+  }
+}

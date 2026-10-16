@@ -19,6 +19,19 @@ export function useDocActions() {
       updateSelectedMeta(updatedDoc);
       queryClient.invalidateQueries({ queryKey: queryKeys.docs });
       queryClient.invalidateQueries({ queryKey: queryKeys.doc(updatedDoc.path) });
+      // Guarda de honestidad: el backend puede devolver un estado distinto al pedido (p. ej. un
+      // frontmatter YAML inválido hace que el estado efectivo salga de la tabla GFM). Un toast de
+      // éxito ahí sería mentir.
+      const applied = updatedDoc.status ?? '';
+      if (applied !== status) {
+        toast.warning(
+          `Se escribió "${status}" pero el estado efectivo sigue siendo "${applied || 'ninguno'}"`,
+          updatedDoc.frontmatter_error
+            ? 'Frontmatter inválido: revisá el bloque YAML'
+            : 'El documento tiene dos fuentes de estado'
+        );
+        return;
+      }
       toast.success(`Status updated to ${status}`);
     },
     onError: (err) => {

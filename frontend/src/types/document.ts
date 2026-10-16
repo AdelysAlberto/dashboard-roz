@@ -22,6 +22,9 @@ export interface DocItem {
   source?: string;
   parent: string;
   root: string;
+  has_frontmatter?: boolean;
+  /** Presente cuando el bloque YAML no parsea: su metadata se ignora y el estado sale de la tabla. */
+  frontmatter_error?: string | null;
   [key: string]: unknown;
 }
 

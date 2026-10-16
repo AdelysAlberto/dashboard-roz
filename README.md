@@ -64,15 +64,32 @@ La plataforma combina un motor de escaneo inteligente multi-raíz que indexa, va
 * **Torre de Control Multi-Proveedor**: Soporte nativo para providers de agentes (**Pi** y **OpenCode**).
 * **Monitoreo de Subagentes en Vivo**:
   * Detección automática de procesos huérfanos, subagentes activos y sesiones de trabajo.
-  * Clasificación visual de salud de la sesión (`active`, `quiet`, `stalled`).
+  * Clasificación visual de salud de la sesión (`active`, `quiet`, `stalled`). `stalled` = el agente mantiene el turno sin salida durante > 180 s; una sesión sin actividad durante `PI_IDLE_TTL` se reporta como `ended` (oculta por defecto).
   * Telemetría de inactividad (*idle seconds*) y tamaño de registros.
 * **Inspección de Logs en Streaming**: Visualización en directo de trazas de ejecución (`tail -f`) para auditar las decisiones del agente.
 * **Kill Switch Seguro**: Envío de señales de terminación controlada (`SIGTERM`) para abortar tareas que hayan entrado en bucle o consuman recursos innecesarios.
+
+### Motores de inferencia con panel propio (adapters)
+* **`kind` + `tags`**: cada manifest declara una categoría cerrada (`llm`, `voice`, `assistant`, `api`, `dashboard`, `infra`) y tags libres. El tablero filtra por categoría (chips con conteo) y por tag, y avisa cuando un filtro deja la grilla vacía.
+* **`engine`**: un servicio puede declarar `"engine": "omlx" | "ollama" | "splash" | "kokoro"`. Roz carga el adapter de `server/engines/` y el modal gana pestañas propias del motor (Modelos · Config · Métricas · Logs) según lo que ese adapter soporte.
+* **Kokoro (TTS)**: adapter propio porque no es un motor de inferencia con modelos descargables — su inventario son las **voces** (embeddings fijos). Expone `voices` (catálogo + default vigente), `synthesize` (prueba de voz: texto → mp3 base64 que el modal reproduce) y `set_default` (fija la voz por defecto del servicio, persistida por Kokoro en su `.env` vía `POST /admin/default-voice`). La pestaña Voces del modal es la única superficie de estas tres.
+* **oMLX**: dos superficies, y la diferencia importa. Con `Authorization: Bearer <api_key>` (de `~/.omlx/config.json`) resuelve inventario y cargar/descargar de memoria (`POST /v1/models/{id}/load|unload` — el `id` de la API es corto, sin el prefijo `mlx-community/`). El resto (descargas de HuggingFace, settings globales y por modelo, logs, métricas) exige **login de admin**: `POST /admin/api/login {api_key, remember}` deja una cookie que Roz guarda en memoria y renueva sola al recibir 401. Todo secreto (`api_key`, tokens) se devuelve enmascarado.
+* **oMLX · reinicio**: `omlx restart` (servicio launchd `sh.brew.omlx`). **No** se usa `POST /admin/api/server/restart`: verificado que apaga el server y el supervisor del menubar no lo levanta.
+* **Ollama**: inventario (`/api/tags`), en memoria (`/api/ps`), borrado, y **`pull` con progreso** (streaming NDJSON en hilo aparte → tarea consultable). Apagarlo es cerrar la app: un `pkill` del server lo respawnea la app; encenderlo es un `launchctl kickstart`.
+* **Splash**: es un **lanzador**, no un demonio. Su panel pide modelo (y flags validados contra su CLI) y Roz compone el comando, lo lanza desacoplado con pidfile y log, y lo para por PID. Puerto fijo 8038: su default no es legible ni estable.
 
 ### Sesiones de Análisis Interactivo (Pilot RPC)
 * **Conexión WebSocket Bidireccional**: Streaming de razonamiento interno (*thinking stream*) y respuesta en lenguaje natural.
 * **Diálogos Interactivos en UI**: Renderizado nativo de peticiones de aclaración del agente (`ask_user_question`, confirmaciones de confirmación) mediante botones y formularios.
 * **Continuidad de Conversación**: Barra de mensajes interactiva para guiar al modelo mientras la sesión permanece abierta.
+
+### Control de Servicios (Services Board)
+* **Descubrimiento por Manifest**: Roz inspecciona `ROZ_SERVICES_DIR` buscando un `roz-service.json` por servicio; añadir un servicio nuevo es escribir su manifest, sin tocar código de Roz.
+* **Unidades Independientes**: Un servicio puede exponer varias unidades arrancables por separado (Alfred = `Engine` + `Voice`), cada una con sus puertos, health check y comandos de arranque/parada.
+* **Estado por Borde**: Verde con todas las unidades ON, ámbar con contador (`1/2 on`) si hay unidades apagadas o cargando, gris si todo está OFF.
+* **Toggle Start/Stop y Restart**: Interruptor por unidad desde la tarjeta, más acciones declaradas en el manifest dentro del modal de detalle (parada y reinicio piden confirmación explícita).
+* **Verificación de Identidad del Puerto**: El campo `expect` del manifest exige una cadena en el health check, de modo que un puerto ocupado por otro proceso se reporta como `port taken` en lugar de fingir un servicio sano.
+* **Auto-gestión Desacoplada**: El propio Roz aparece como servicio; sus comandos se ejecutan en una sesión nueva (`detached`) para que reiniciarse no mate la petición que lo ordena.
 
 ---
 
@@ -132,6 +149,70 @@ Roz también admite de forma retrocompatible la declaración de metadatos median
 
 ---
 
+## Service Manifest Specification
+
+Cada servicio que aparece en la pestaña **Services** se declara con un archivo `roz-service.json` en la raíz de su propio directorio, dentro de `ROZ_SERVICES_DIR`. Los servicios que no lo tengan pero sí expongan `start.sh` y `stop.sh` se listan como *undocumented*, sin puerto ni health check.
+
+```json
+{
+  "id": "alfred",
+  "name": "Alfred",
+  "order": 10,
+  "tags": ["voice", "assistant"],
+  "url": "http://127.0.0.1:8032",
+  "description": "Qué es este servicio, en dos o tres frases.",
+  "docs": "README.md",
+  "self": false,
+  "detached": false,
+  "units": [
+    {
+      "id": "engine",
+      "name": "Engine",
+      "port": 8032,
+      "health": "/health",
+      "expect": "\"status\"",
+      "pid_file": "backend/logs/engine.pid",
+      "start": "./start.sh engine",
+      "stop": "./stop.sh engine"
+    }
+  ],
+  "actions": [
+    { "id": "restart-all", "label": "Restart all", "command": "./restart.sh" }
+  ]
+}
+```
+
+| Campo | Tipo | Requerido | Descripción |
+| :--- | :--- | :---: | :--- |
+| `id` | `String` | No | Identificador estable para la API. Por defecto, el nombre del directorio |
+| `name` | `String` | Sí | Nombre mostrado en la tarjeta |
+| `order` | `Number` | No | Orden de aparición en el tablero (menor primero, por defecto `100`) |
+| `tags` | `String[]` | No | Etiquetas cortas mostradas en la tarjeta |
+| `url` | `String` | No | Enlace para el botón *Open* del modal |
+| `description` | `String` | No | Texto explicativo del modal |
+| `docs` | `String` | No | Ruta relativa (dentro del propio servicio) a un Markdown renderizable en el modal |
+| `self` | `Boolean` | No | Marca el servicio como el propio Roz: sus acciones siempre piden confirmación |
+| `detached` | `Boolean` | No | Ejecuta los comandos en una sesión nueva, sin esperar salida (necesario para servicios que se reinician a sí mismos) |
+| `units` | `Object[]` | Sí | Unidades arrancables por separado; como mínimo una |
+| `actions` | `Object[]` | No | Comandos extra expuestos como botones en el modal |
+
+Campos de cada unidad:
+
+| Campo | Tipo | Requerido | Descripción |
+| :--- | :--- | :---: | :--- |
+| `id` | `String` | Sí | Identificador de la unidad dentro del servicio |
+| `name` | `String` | Sí | Nombre mostrado en la tarjeta y en la tabla del modal |
+| `port` / `ports` | `Number` / `Number[]` | No | Puerto o puertos que deben estar escuchando. Sin puertos declarados la unidad no es sondeable |
+| `health` | `String` | No | Ruta (`/health`) o URL completa del health check |
+| `expect` | `String` | No | Subcadena obligatoria en la respuesta del health check: si falta, la unidad se marca `port taken` |
+| `pid_file` | `String` | No | Archivo con el PID: si el proceso vive pero el puerto aún no escucha, la unidad se muestra `booting` |
+| `start` / `stop` | `String` | No | Comandos de arranque y parada (relativos al directorio del servicio). Con ambos definidos se habilita el reinicio |
+
+> [!IMPORTANT]
+> Los comandos se leen exclusivamente de estos manifests y se ejecutan con el directorio del servicio como `cwd`. La API **nunca** acepta una cadena de shell del cliente: sólo un `service_id`, un `unit_id` y un `action_id` conocidos. Un manifest es código — revísalo como tal.
+
+---
+
 ## Quick Start
 
 ### Requisitos Previos
@@ -156,7 +237,7 @@ Roz también admite de forma retrocompatible la declaración de metadatos median
    ```bash
    ./start.sh
    ```
-   *El script configurará automáticamente el entorno virtual de Python (`.venv`), instalará dependencias del backend, compilará la SPA de React con Bun si no existe `dist/` y levantará el servidor en `http://127.0.0.1:8756`.*
+   *El script configurará automáticamente el entorno virtual de Python (`.venv`), instalará dependencias del backend, compilará la SPA de React con Bun si no existe `dist/` y levantará el servidor en `http://127.0.0.1:8036`.*
 
 4. **Detener el servicio**:
    ```bash
@@ -186,7 +267,9 @@ bun dev
 | Variable | Descripción | Valor por Defecto |
 | :--- | :--- | :--- |
 | `ROZ_HOST` | Dirección de enlace para el servidor HTTP | `127.0.0.1` |
-| `ROZ_PORT` | Puerto de escucha de la aplicación | `8756` |
+| `ROZ_PORT` | Puerto de escucha de la aplicación | `8036` |
+| `ROZ_SERVICES_DIR` | Directorio cuyos subdirectorios se inspeccionan en busca de `roz-service.json` (pestaña Services). Vacío = tablero deshabilitado | — |
+| `ROZ_SERVICE_TIMEOUT` | Segundos máximos que puede correr un comando start/stop/restart antes de ser abortado | `120` |
 | `ROZ_PROJECT_ROOTS` | Rutas raíz por defecto separadas por comas | Directorio actual |
 | `PI_BINARY` | Ruta al binario ejecutable de `pi` | `pi` |
 | `PI_DEFAULT_MODEL` | Modelo por defecto para análisis RPC | Configuración local |
@@ -201,6 +284,16 @@ bun dev
 * `GET /api/sessions`: Devuelve las sesiones y subagentes en ejecución detectados por los proveedores.
 * `GET /api/sessions/log?path=...`: Devuelve las últimas líneas del registro de un agente.
 * `POST /api/sessions/kill`: Envía señal de terminación al subagente seleccionado.
+* `GET /api/services`: Instantánea del tablero (servicios, unidades, estado, PIDs, health y acciones disponibles).
+* `GET /api/services/docs?id=...`: Contenido del documento declarado en `docs` del manifest (lectura confinada al directorio del servicio).
+* `POST /api/services/action`: Ejecuta `start`/`stop`/`restart` sobre una unidad o una acción del manifest. El comando siempre se resuelve en el servidor desde el manifest; el cliente nunca envía una cadena de shell.
+* `GET /api/engines/{id}/models`: Inventario del motor (oMLX/Ollama) con estado en memoria, tamaño, tipo y contexto.
+* `POST /api/engines/{id}/models/action`: `load` / `unload` (oMLX) o `delete` (Ollama) de un modelo.
+* `GET|POST /api/engines/{id}/settings`: Settings globales del motor (oMLX: agrupados por sección, secretos enmascarados) y su actualización.
+* `GET /api/engines/{id}/hf/search` · `POST /api/engines/{id}/hf/download` · `GET /api/engines/{id}/tasks`: Búsqueda y descarga de modelos desde HuggingFace con seguimiento de tareas.
+* `POST /api/engines/{id}/pull`: Descarga con progreso para Ollama.
+* `POST /api/engines/{id}/launch` · `POST /api/engines/{id}/server`: Arranque por modelo (Splash) y ciclo de vida gestionado por otro supervisor (Ollama).
+* `GET /api/engines/{id}/metrics` · `GET /api/engines/{id}/logs` · `POST /api/engines/{id}/restart`: Métricas, logs y reinicio seguro del motor.
 * `WS /ws/analyze`: Canal WebSocket para streaming de análisis y ejecución de herramientas interactivas.
 
 ---
@@ -221,6 +314,10 @@ roz/
 │   ├── mdstore.py            # Parser de frontmatter YAML, tablas GFM y operaciones de archivo
 │   ├── monitor.py            # Orquestador de sesiones de trabajo y subagentes
 │   ├── pilot.py              # Puente interactivo RPC bidireccional con pi
+│   ├── services.py           # Registro de servicios: descubrimiento y validación de manifests
+│   ├── services_runtime.py   # Sondeo de puertos, PIDs y health checks por unidad
+│   ├── services_actions.py   # Ejecución de comandos resueltos en servidor (start/stop/restart)
+│   ├── services_api.py       # Endpoints del tablero de servicios
 │   └── providers/            # Adaptadores de agentes
 │       ├── base.py           # Interfaz base de proveedor de ejecución
 │       ├── pi_provider.py    # Integración con el ecosistema de agentes Pi
@@ -237,6 +334,7 @@ roz/
     │   │   ├── documents/    # Visor Markdown, barra lateral, árboles y filtros
     │   │   ├── monitor/      # Tablero de supervisión de agentes, logs y kill switch
     │   │   ├── paths/        # Selector y gestor dinámico de rutas raíz
+    │   │   ├── services/     # Tablero de control de servicios, tarjetas y modal de detalle
     │   │   └── validation/   # Validación de adherencia a esquemas de metadatos
     │   ├── services/         # Clientes de consulta tipados con TanStack Query
     │   ├── stores/           # Almacén de estado global con Zustand 5
@@ -258,4 +356,4 @@ Desarrollado y mantenido por **Adelys Alberto Belen**:
 
 ## License
 
-Este proyecto está licenciado bajo los términos de la Licencia MIT. Consulta el archivo [LICENSE](file:///Volumes/Datos/Projects/services/roz/LICENSE) para más información.
+Este proyecto está licenciado bajo los términos de la Licencia MIT. Consulta el archivo [LICENSE](LICENSE) para más información.

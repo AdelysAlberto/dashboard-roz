@@ -16,9 +16,7 @@ from typing import Any
 
 from server.providers.base import BaseAgentProvider
 
-SESSIONS_ROOT = Path(
-    os.environ.get("PI_SESSIONS_DIR", os.path.expanduser("~/.pi/agent/sessions"))
-)
+LEGACY_SESSIONS_DIR = "~/.pi/agent/sessions"
 
 STALL_SECONDS = 180
 QUIET_SECONDS = 15
@@ -146,6 +144,78 @@ def _extra_parent_dirs() -> list[Path]:
     return [Path(sd)] if sd else []
 
 
+def _session_roots() -> list[Path]:
+    """Resolve session roots at call time (no module-level caching).
+
+    Priority: PI_SESSIONS_DIR env (":" or "," separated) -> sessionDir in
+    ~/.pi/agent/settings.json -> legacy ~/.pi/agent/sessions. The legacy root is
+    always appended so historical sessions stay visible.
+    """
+    raw = os.environ.get("PI_SESSIONS_DIR", "").strip()
+    candidates: list[str] = []
+    if raw:
+        candidates = [c.strip() for c in re.split(r"[:,]", raw) if c.strip()]
+    else:
+        sd = _settings_session_dir()
+        if sd:
+            candidates = [sd]
+    candidates.append(LEGACY_SESSIONS_DIR)
+    roots: list[Path] = []
+    seen: set[str] = set()
+    for c in candidates:
+        p = Path(c).expanduser()
+        key = str(p)
+        if key not in seen and p.is_dir():
+            seen.add(key)
+            roots.append(p)
+    return roots
+
+
+def _idle_ttl() -> int:
+    """Abandoned-session boundary, resolved at call time (same knob as pilot.py).
+
+    PI_IDLE_TTL: idle seconds after which a session is considered abandoned and
+    reported as `ended` (dual use: idle kill in pilot + monitor classification).
+    """
+    try:
+        return int(os.environ.get("PI_IDLE_TTL", "1800"))
+    except (TypeError, ValueError):
+        return 1800
+
+
+def _under_session_roots(fp: Path) -> bool:
+    """Path guard for tail_log/kill_session: any configured root, jsonl only."""
+    return fp.suffix == ".jsonl" and any(r.resolve() in fp.parents for r in _session_roots())
+
+
+def _newest(files: list[Path], limit: int) -> list[Path]:
+    return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+
+
+def _stale_oversized(path: Path) -> bool:
+    """Skip an oversized primary only when stale; a live >2MB session must stay visible."""
+    stat = path.stat()
+    return stat.st_size > _PRIMARY_MAX_BYTES and time.time() - stat.st_mtime > STALL_SECONDS
+
+
+def _async_reported_session_files() -> set[str]:
+    """Resolved sessionFile paths already reported by list_async_subagents (avoid double cards)."""
+    files: set[str] = set()
+    for adir in _async_runs_dirs():
+        for rdir in (p for p in adir.iterdir() if p.is_dir()):
+            status_file = rdir / "status.json"
+            if not status_file.exists():
+                continue
+            try:
+                data = json.loads(status_file.read_text("utf-8"))
+            except Exception:  # noqa: BLE001
+                continue
+            sfile = data.get("sessionFile")
+            if isinstance(sfile, str) and sfile:
+                files.add(str(Path(sfile).expanduser().resolve()))
+    return files
+
+
 def _project_label(safe_dir: str) -> str:
     name = safe_dir.strip("-")
     return name.rsplit("-", 1)[-1] if "-" in name else name
@@ -171,7 +241,8 @@ def _extract_subagent_calls(dirs: list[Path], limit_files: int) -> list[dict]:
 
 
 def _load_name_map(project_cwd: str, limit_files: int = 8) -> list[dict]:
-    return _extract_subagent_calls([SESSIONS_ROOT / _safe_project_dir(project_cwd)] + _extra_parent_dirs(), limit_files)
+    roots = _session_roots()
+    return _extract_subagent_calls([r / _safe_project_dir(project_cwd) for r in roots] + roots, limit_files)
 
 
 def _load_name_map_from_dir(project_dir: Path, limit_files: int = 8) -> list[dict]:
@@ -199,6 +270,8 @@ def _summarize_session(path: Path, pid: int | None, name_map: list[dict], *, kin
     cost = 0.0
     model_id = ""
     model_provider = ""
+    tail_role = ""
+    tail_tool = False
     for d in _iter_entries(path):
         if d.get("type") == "session":
             header = d
@@ -209,6 +282,12 @@ def _summarize_session(path: Path, pid: int | None, name_map: list[dict], *, kin
             model_provider = str(d.get("provider") or "")
         if not m:
             continue
+        if d.get("type") == "message":
+            # Tail marker: custom/context_edit entries must not update this.
+            tail_role = str(m.get("role") or "")
+            tail_tool = tail_role == "assistant" and any(
+                isinstance(c, dict) and c.get("type") == "toolCall" for c in (m.get("content") or [])
+            )
         msgs += 1
         try:
             ts = int(m.get("timestamp") or 0) / 1000
@@ -250,9 +329,14 @@ def _summarize_session(path: Path, pid: int | None, name_map: list[dict], *, kin
     live = pid is not None or (
         kind == "primary" and idle <= STALL_SECONDS and now - mtime <= PRIMARY_LIVE_MTIME
     )
-    if not live:
+    # The agent holds the turn only while a tool call is pending or a prompt was
+    # just submitted; a settled tail (assistant text/thinking) means it is done.
+    in_flight = tail_role in ("toolResult", "user") or (tail_role == "assistant" and tail_tool)
+    if not live or idle > _idle_ttl():
+        # Terminal: process gone or abandoned past PI_IDLE_TTL (never red forever).
         state = "ended"
-    elif idle > STALL_SECONDS:
+    elif in_flight and idle > STALL_SECONDS:
+        # Red ONLY while the agent holds the turn and is silent.
         state = "stalled"
     elif idle > QUIET_SECONDS:
         state = "quiet"
@@ -422,53 +506,59 @@ class PiAgentProvider(BaseAgentProvider):
             seen_ids.add(s["id"])
             out.append(s)
 
-        if not SESSIONS_ROOT.is_dir():
-            return out
-
-        # 2. Legacy sessions
+        # 2. Filesystem sessions across every configured root
         sub_pids = _live_subagent_pids()
         prim_pids = _live_primary_pids()
+        async_files = _async_reported_session_files()
+        wanted = {_safe_project_dir(c): c for c in project_cwds}
         name_maps: dict[Path, list[dict]] = {}
 
-        session_dirs: dict[Path, str] = {}
-        for cwd in project_cwds:
-            d = SESSIONS_ROOT / _safe_project_dir(cwd)
-            if d.is_dir():
-                session_dirs[d] = cwd
-        if SESSIONS_ROOT.is_dir():
-            for d in sorted(SESSIONS_ROOT.iterdir()):
-                if d.is_dir() and d.name.startswith("--") and d.name.endswith("--") and d not in session_dirs:
-                    session_dirs[d] = ""
-
-        for d, cwd in session_dirs.items():
-            if d not in name_maps:
-                name_maps[d] = _load_name_map(cwd) if cwd else _load_name_map_from_dir(d)
-            subdir = d / "subagents"
-            if subdir.is_dir():
-                for f in sorted(subdir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)[:50]:
-                    pid = _match_pid(f, sub_pids)
-                    summ = _summarize_session(f, pid, name_maps[d])
-                    if summ["id"] not in seen_ids:
-                        seen_ids.add(summ["id"])
-                        out.append(summ)
-            for f in sorted(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)[:20]:
-                if f.stat().st_size > _PRIMARY_MAX_BYTES:
-                    continue
-                pid = _match_pid(f, prim_pids)
-                s = _summarize_session(f, pid, [], kind="primary")
-                if s["id"] in seen_ids:
-                    continue
+        def add(s: dict) -> None:
+            if s["id"] not in seen_ids:
                 seen_ids.add(s["id"])
-                if cwd:
-                    s["project"] = os.path.basename(os.path.abspath(cwd).rstrip("/")) or cwd
-                else:
-                    s["project"] = _project_label(d.name)
                 out.append(s)
+
+        for root in _session_roots():
+            # (a) flat root-level *.jsonl = primary sessions (custom sessionDir layout)
+            for f in _newest(list(root.glob("*.jsonl")), 20):
+                if _stale_oversized(f):
+                    continue
+                add(_summarize_session(f, _match_pid(f, prim_pids), [], kind="primary"))
+            # (c) <root>/<parentBase>/<childId>/run-N/session.jsonl = subagent child sessions
+            for base in sorted(p for p in root.iterdir() if p.is_dir()):
+                if base.name.startswith(("--", ".")) or base.name == "subagent-artifacts":
+                    continue
+                for child in (p for p in base.iterdir() if p.is_dir()):
+                    for run in (p for p in child.iterdir() if p.is_dir() and p.name.startswith("run-")):
+                        f = run / "session.jsonl"
+                        if not f.is_file() or str(f.resolve()) in async_files:
+                            continue
+                        add(_summarize_session(f, _match_pid(f, sub_pids), [], kind="subagent"))
+            # (b) legacy --cwd-- project dirs (primaries + subagents/*.jsonl)
+            session_dirs: dict[Path, str] = {}
+            for d in sorted(root.iterdir()):
+                if d.is_dir() and d.name.startswith("--") and d.name.endswith("--"):
+                    session_dirs[d] = wanted.get(d.name, "")
+            for d, cwd in session_dirs.items():
+                if d not in name_maps:
+                    name_maps[d] = _load_name_map(cwd) if cwd else _load_name_map_from_dir(d)
+                subdir = d / "subagents"
+                if subdir.is_dir():
+                    for f in _newest(list(subdir.glob("*.jsonl")), 50):
+                        add(_summarize_session(f, _match_pid(f, sub_pids), name_maps[d]))
+                for f in _newest(list(d.glob("*.jsonl")), 20):
+                    if _stale_oversized(f):
+                        continue
+                    s = _summarize_session(f, _match_pid(f, prim_pids), [], kind="primary")
+                    if cwd:
+                        s["project"] = os.path.basename(os.path.abspath(cwd).rstrip("/")) or cwd
+                    else:
+                        s["project"] = _project_label(d.name)
+                    add(s)
         return out
 
     def tail_log(self, target: str, lines: int = 120) -> list[dict[str, Any]]:
         fp = Path(target).expanduser().resolve()
-        root = SESSIONS_ROOT.resolve()
 
         # Check if this is an async run event file
         is_async_file = False
@@ -477,7 +567,7 @@ class PiAgentProvider(BaseAgentProvider):
                 is_async_file = True
                 break
 
-        if not is_async_file and (root not in fp.parents or fp.suffix != ".jsonl"):
+        if not is_async_file and not _under_session_roots(fp):
             raise ValueError(f"Path outside Pi sessions dir: {target}")
 
         if not fp.exists():
@@ -587,7 +677,6 @@ class PiAgentProvider(BaseAgentProvider):
 
     def kill_session(self, target: str) -> int:
         fp = Path(target).expanduser().resolve()
-        root = SESSIONS_ROOT.resolve()
 
         # Check async runs
         for adir in _async_runs_dirs():
@@ -605,7 +694,7 @@ class PiAgentProvider(BaseAgentProvider):
                         raise RuntimeError(f"failed to kill async process: {e}") from e
                 raise RuntimeError("no live async process found")
 
-        if root not in fp.parents or fp.suffix != ".jsonl":
+        if not _under_session_roots(fp):
             raise ValueError(f"Path outside Pi sessions dir: {target}")
         pid = _match_pid(fp, _live_subagent_pids())
         if pid is None:

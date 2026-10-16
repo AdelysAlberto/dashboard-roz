@@ -1,0 +1,40 @@
+{
+  "id": "roz",
+  "name": "Roz",
+  "kind": "dashboard",
+  "order": 90,
+  "tags": [
+    "dashboard",
+    "infra"
+  ],
+  "url": "http://127.0.0.1:8036",
+  "docs": "README.md",
+  "self": true,
+  "detached": true,
+  "description": "Este propio dashboard (FastAPI + SPA React en 8036). Auto-gestionado: apagarlo o reiniciarlo tumba la interfaz que estás usando, así que sus comandos se ejecutan desacoplados (nohup / nueva sesión) para que la petición HTTP sobreviva y el servicio pueda volver solo. Si lo apagas, la UI deja de responder hasta que lo levantes a mano con ./start.sh.",
+  "units": [
+    {
+      "id": "server",
+      "name": "Roz API + UI",
+      "port": 8036,
+      "health": "/api/roots",
+      "expect": "roots",
+      "pid_file": ".roz.pid",
+      "start": "./start.sh",
+      "stop": "./stop.sh"
+    }
+  ],
+  "actions": [
+    {
+      "id": "restart",
+      "label": "Restart Roz",
+      "command": "./stop.sh && ./start.sh",
+      "detached": true
+    },
+    {
+      "id": "rebuild",
+      "label": "Rebuild frontend",
+      "command": "cd frontend && bun install && bun run build"
+    }
+  ]
+}

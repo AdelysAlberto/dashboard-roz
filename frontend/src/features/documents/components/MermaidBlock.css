@@ -1,0 +1,52 @@
+.mermaid-block {
+  margin: 0;
+}
+
+.mermaid-source {
+  margin: 0;
+}
+
+.mermaid-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.625rem;
+}
+
+.mermaid-hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+.mermaid-canvas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  max-height: 70vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.mermaid-status {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.mermaid-svg {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.mermaid-svg svg {
+  max-width: 100%;
+  height: auto;
+}

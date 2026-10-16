@@ -1,6 +1,6 @@
 export type SortOption = 'title-asc' | 'title-desc' | 'date-desc' | 'date-asc' | 'status';
 export type GroupOption = 'root' | 'folder' | 'module' | 'none';
-export type ActiveTab = 'doc' | 'analysis' | 'monitor';
+export type ActiveTab = 'doc' | 'analysis' | 'monitor' | 'services';
 export type ThemeMode = 'dark' | 'light';
 
 export interface ToastMessage {

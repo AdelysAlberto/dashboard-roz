@@ -1,4 +1,4 @@
-import { Activity, Bot, FileText } from 'lucide-react';
+import { Activity, Bot, FileText, LayoutGrid } from 'lucide-react';
 import React from 'react';
 import { ActionSidebar } from '../../features/actions/components/ActionSidebar';
 import { AnalysisPane } from '../../features/analysis/components/AnalysisPane';
@@ -7,6 +7,7 @@ import { DocViewer } from '../../features/documents/components/DocViewer';
 import { useMonitorSessions } from '../../features/monitor/hooks/useMonitorSessions';
 import { MonitorPane } from '../../features/monitor/components/MonitorPane';
 import { ScanPathsModal } from '../../features/paths/components/ScanPathsModal';
+import { ServicesPane } from '../../features/services/components/ServicesPane';
 import { ValidationModal } from '../../features/validation/components/ValidationModal';
 import { useAnalysisStore } from '../../stores/useAnalysisStore';
 import { useDocSelectionStore } from '../../stores/useDocSelectionStore';
@@ -46,17 +47,26 @@ export const MainLayout: React.FC = () => {
       dot: liveMonitorSessions > 0,
       dotColor: 'var(--color-done)',
     },
+    {
+      id: 'services' as ActiveTab,
+      label: 'Services',
+      icon: <LayoutGrid size={14} />,
+    },
   ];
+
+  const isServices = activeTab === 'services';
 
   return (
     <div className="main-layout-root">
       <Header />
 
-      <main className="main-grid-container">
+      <main className={`main-grid-container ${isServices ? 'grid-services' : ''}`}>
         {/* Left Column: Documents List & Filters */}
-        <section className="column-left">
-          <DocSidebar />
-        </section>
+        {!isServices && (
+          <section className="column-left">
+            <DocSidebar />
+          </section>
+        )}
 
         {/* Center Column: Viewer / Analysis / Monitor */}
         <section className="column-center">
@@ -72,13 +82,16 @@ export const MainLayout: React.FC = () => {
             {activeTab === 'doc' && <DocViewer />}
             {activeTab === 'analysis' && <AnalysisPane />}
             {activeTab === 'monitor' && <MonitorPane />}
+            {activeTab === 'services' && <ServicesPane />}
           </div>
         </section>
 
         {/* Right Column: Actions & AI Launcher */}
-        <section className="column-right">
-          <ActionSidebar />
-        </section>
+        {!isServices && (
+          <section className="column-right">
+            <ActionSidebar />
+          </section>
+        )}
       </main>
 
       {/* Global Modals & Notifications */}
