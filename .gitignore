@@ -12,6 +12,8 @@ __pycache__/
 .roz.pid
 .roz_roots.json
 .env
+.env.*
+!.env.example
 
 # Node & Package Managers
 node_modules/
