@@ -15,11 +15,19 @@ from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from server import engines_api, mdstore, monitor, pilot, services_api  # noqa: E402
+from server import (  # noqa: E402
+    engines_api,
+    mdstore,
+    monitor,
+    pilot,
+    services_api,
+    skills_api,
+)
 
 app = FastAPI(title="roz")
 app.include_router(services_api.router)
 app.include_router(engines_api.router)
+app.include_router(skills_api.router)
 
 WEB = BASE / "web"
 
@@ -229,12 +237,22 @@ def validate_docs():
     return mdstore.validate_all()
 
 
+def _advertised_agents() -> list[str]:
+    """PI_AGENTS filtered by personas that exist, so the dropdown has no dead options."""
+    raw = [a.strip() for a in os.environ.get("PI_AGENTS", "none").split(",") if a.strip()]
+    available = set(pilot.available_agents())
+    if not available:
+        return raw or ["none"]
+    kept = [a for a in raw if a == "none" or a in available]
+    return kept or ["none"]
+
+
 @app.get("/api/config")
 def get_config():
     return {
         "model": pilot.CONFIG["model"],
         "project_dir": pilot.CONFIG["project_dir"],
-        "agents": [a.strip() for a in os.environ.get("PI_AGENTS", "none").split(",") if a.strip()],
+        "agents": _advertised_agents(),
         "done_dir": os.environ.get("ROZ_DONE_DIR", ""),
         "pi_bin": pilot.CONFIG["pi_bin"],
     }

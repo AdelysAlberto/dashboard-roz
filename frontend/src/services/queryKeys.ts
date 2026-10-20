@@ -6,6 +6,8 @@ export const queryKeys = {
   validate: ['validate'] as const,
   monitorSessions: ['monitor', 'sessions'] as const,
   monitorLog: (path: string | null) => ['monitor', 'log', path] as const,
+  skills: ['skills'] as const,
+  skillDetail: (id: string | null) => ['skills', 'detail', id] as const,
   services: ['services'] as const,
   serviceDocs: (id: string | null) => ['services', 'docs', id] as const,
   engineModels: (id: string | null) => ['engines', id, 'models'] as const,

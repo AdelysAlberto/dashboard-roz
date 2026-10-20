@@ -6,6 +6,7 @@ import {
   ServiceDoc,
   ServiceSnapshot,
 } from '../types/service';
+import { SkillDetail, SkillsSnapshot } from '../types/skill';
 import {
   ActionOutput,
   EngineLogs,
@@ -116,6 +117,15 @@ export const api = {
     request<LaunchResult>('POST', `/api/engines/${id}/launch`, { model, args }),
   engineServerOp: (id: string, op: 'start' | 'stop') =>
     request<ActionOutput>('POST', `/api/engines/${id}/server`, { op }),
+
+  // Skills (agent SKILL.md index)
+  getSkills: () => request<SkillsSnapshot>('GET', '/api/skills'),
+  getSkillDetail: (id: string) =>
+    request<SkillDetail>('GET', `/api/skills/detail?id=${encodeURIComponent(id)}`),
+  setSkillTags: (payload: { id: string; category?: string; tags?: string[] }) =>
+    request<{ entry: Record<string, unknown> }>('POST', '/api/skills/tags', payload),
+  skillDeepDive: (id: string, agent: string) =>
+    request<{ run_id: string; path: string }>('POST', '/api/skills/deepdive', { id, agent }),
 
   // Kokoro (voces)
   getKokoroVoices: (id: string) => request<KokoroVoices>('GET', `/api/engines/${id}/voices`),

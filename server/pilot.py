@@ -13,6 +13,9 @@ import shlex
 import time
 from pathlib import Path
 
+from server.pilot_agents import agents_dir, available_agents, persona_path
+from server.pilot_events import compact_event
+
 CONFIG = {
     "pi_bin": os.environ.get("PI_BIN", "pi"),
     "model": os.environ.get("PI_MODEL", ""),
@@ -22,8 +25,6 @@ CONFIG = {
     # idle kill for abandoned sessions (seconds)
     "idle_ttl": int(os.environ.get("PI_IDLE_TTL", "1800")),
 }
-
-_MAX_STR = 2000
 
 
 class AnalysisRun:
@@ -43,12 +44,15 @@ class AnalysisRun:
         self._cond = asyncio.Condition()
         self._stdin_lock = asyncio.Lock()
 
+        self.persona = persona_path(agent)
         argv = [CONFIG["pi_bin"], "--mode", "rpc"]
         if CONFIG["model"]:
             argv += ["--model", CONFIG["model"]]
-        if agent and agent != "none":
-            argv += ["--agent", agent]
         argv += [os.path.expanduser(f) for f in shlex.split(CONFIG["flags"])]
+        # Last system prompt wins the "closest instruction" position: the persona
+        # must come after the global AGENTS.md appended by PI_FLAGS.
+        if self.persona:
+            argv += ["--append-system-prompt", str(self.persona)]
         self.argv = argv
         self._first_prompt = first_prompt
 
@@ -58,6 +62,15 @@ class AnalysisRun:
         self._task = asyncio.create_task(self._run())
 
     async def _run(self):
+        if self.agent and self.agent != "none" and not self.persona:
+            await self._emit({
+                "type": "roz_stderr",
+                "message": (
+                    f"agent '{self.agent}' has no persona file "
+                    f"(PI_AGENTS_DIR={agents_dir() or 'unset'}); "
+                    "running with the default prompt"
+                ),
+            })
         cwd = Path(CONFIG["project_dir"]).expanduser().resolve()
         try:
             self.proc = await asyncio.create_subprocess_exec(
@@ -201,63 +214,6 @@ class RunRegistry:
                     await run.close()
 
 
-def compact_event(ev: dict) -> dict:
-    """Strip huge payloads (system prompts, session headers) so WS frames stay small."""
-    t = ev.get("type")
-    if t == "session":
-        return {"type": "session", "cwd": ev.get("cwd", "")}
-    if t == "message_start":
-        return {"type": t, "role": ev.get("message", {}).get("role")}
-    if t == "message_end":
-        m = ev.get("message", {})
-        c = m.get("content")
-        if isinstance(c, str):
-            c = c[:1000]
-        elif isinstance(c, list):
-            c = [
-                p if not isinstance(p.get("text"), str) else {**p, "text": p["text"][:_MAX_STR]}
-                for p in c
-            ]
-        return {"type": t, "role": m.get("role"), "content": c, "stopReason": m.get("stopReason")}
-    if t == "message_update":
-        d = ev.get("assistantMessageEvent", {})
-        return {"type": t, "deltaType": d.get("type"), "delta": str(d.get("delta", ""))[:200]}
-    if t == "tool_execution_end":
-        r = ev.get("result")
-        c = r.get("content") if isinstance(r, dict) else r
-        if not isinstance(c, str):
-            c = json.dumps(c, default=str)
-        return {"type": t, "toolName": ev.get("toolName"), "content": c[:1200]}
-    if t == "extension_ui_request":
-        return {
-            "type": t,
-            "id": ev.get("id"),
-            "method": ev.get("method"),
-            "title": ev.get("title"),
-            "message": ev.get("message") or ev.get("placeholder") or "",
-            "options": ev.get("options"),
-            "timeout": ev.get("timeout"),
-        }
-    if t in ("agent_start", "agent_settled", "turn_start", "ping"):
-        return {"type": t}
-    if t == "response":
-        data = ev.get("data")
-        return {"type": t, "command": ev.get("command"), "success": ev.get("success"),
-                "data": json.dumps(data, default=str)[:400] if data else None}
-    if t == "turn_end":
-        return {"type": t}
-    if t == "agent_end":
-        return {"type": t, "willRetry": ev.get("willRetry")}
-
-    def trim(x):
-        if isinstance(x, str):
-            return x[:_MAX_STR]
-        if isinstance(x, dict):
-            return {k: trim(v) for k, v in x.items()}
-        if isinstance(x, list):
-            return [trim(v) for v in x[:20]]
-        return x
-    return trim(ev)
 
 
 registry = RunRegistry()

@@ -91,6 +91,15 @@ La plataforma combina un motor de escaneo inteligente multi-raíz que indexa, va
 * **Verificación de Identidad del Puerto**: El campo `expect` del manifest exige una cadena en el health check, de modo que un puerto ocupado por otro proceso se reporta como `port taken` en lugar de fingir un servicio sano.
 * **Auto-gestión Desacoplada**: El propio Roz aparece como servicio; sus comandos se ejecutan en una sesión nueva (`detached`) para que reiniciarse no mate la petición que lo ordena.
 
+### Skills Catalog (Skills Board)
+* **Descubrimiento de solo lectura**: Roz escanea `ROZ_SKILLS_DIRS` buscando directorios con `SKILL.md` y extrae `name`, `description`, `license` y el inventario de archivos. **Nunca escribe dentro de una carpeta de skills**: el descubrimiento de Pi/OpenCode/Claude sigue intacto.
+* **Taxonomía fuera del skill**: categoría, tags y el análisis del modelo viven en un índice propio de Roz (`ROZ_SKILLS_INDEX`, por defecto `.roz_skills.json`). Prioridad de autoridad: tag manual → `metadata.category` declarado en el `SKILL.md` → heurística por palabras clave sobre nombre y descripción.
+* **Agrupación y filtro**: panel izquierdo con buscador, filtro por raíz de skills y grupos colapsables por tipo (Design, UX & Accessibility, Frontend & Mobile, Backend & Data, Quality & Testing, Security, Writing & Docs, Product & Planning, Legal & Compliance, Finance & Tax, Video & Media, Agents & Tooling) con conteo por grupo.
+* **Ficha del skill**: frase en español de qué hace, categoría reasignable con un clic, tags, ruta, número de líneas, archivos y el `SKILL.md` completo renderizado. La `description` declarada (en inglés, escrita para el router del agente) queda detrás del toggle *Declared description (EN)*.
+* **Explicación en lenguaje llano**: el botón *Explain this skill* envía el documento a un modelo OpenAI-compatible (`ROZ_LLM_*`, por defecto `dell3-heretic`) con un prompt de analista senior de documentación y streamea la respuesta: qué es, cuándo usarlo, qué resuelve, cómo se invoca, con qué no confundirlo. El contrato incluye `CATEGORY`, `TAGS` y `SUMMARY_ES` (una frase en español que pasa a ser el resumen visible del skill en la ficha y en el listado). El resultado se cachea en el índice y se marca como *out of date* cuando el `SKILL.md` cambia (`content_hash`).
+* **Chat por skill**: rail derecho para preguntar lo que sea sobre el skill abierto. El modelo responde con el documento en contexto y admite explícitamente lo que el documento no define.
+* **Deep dive con herramientas**: cuando hace falta investigar fuera del documento (web, GitHub, shell), el botón lanza una sesión `pi` real con el agente elegido y esa sesión aparece en la pestaña **Analysis**, reutilizando el WebSocket y los diálogos interactivos existentes.
+
 ---
 
 ## Document Format Specification
@@ -273,6 +282,14 @@ bun dev
 | `ROZ_PROJECT_ROOTS` | Rutas raíz por defecto separadas por comas | Directorio actual |
 | `PI_BINARY` | Ruta al binario ejecutable de `pi` | `pi` |
 | `PI_DEFAULT_MODEL` | Modelo por defecto para análisis RPC | Configuración local |
+| `PI_AGENTS_DIR` | Directorio con un `<agente>.md` por agente. Cada nombre de `PI_AGENTS` se inyecta con `--append-system-prompt`; los que no tienen archivo se ocultan de la UI y avisan por el log de la sesión | — |
+| `ROZ_SKILLS_DIRS` | Rutas separadas por comas con skills de agente (`<raíz>/<skill>/SKILL.md`). Vacío = pestaña Skills sin datos | — |
+| `ROZ_SKILLS_INDEX` | Índice overlay de Roz (categorías, tags y análisis cacheado). Relativo al repo si no es absoluto | `.roz_skills.json` |
+| `ROZ_LLM_BASE_URL` | Endpoint OpenAI-compatible usado por *Explain* y el chat de skills | — |
+| `ROZ_LLM_MODEL` | Modelo de ese endpoint | — |
+| `ROZ_LLM_API_KEY` | Token Bearer del endpoint (vacío si es local sin auth) | — |
+| `ROZ_LLM_TIMEOUT` | Segundos máximos por llamada al modelo | `240` |
+| `ROZ_LLM_MAX_SKILL_CHARS` | Tope de caracteres del `SKILL.md` enviado al modelo | `120000` |
 
 ### Endpoints Principales del Backend
 
@@ -294,6 +311,12 @@ bun dev
 * `POST /api/engines/{id}/pull`: Descarga con progreso para Ollama.
 * `POST /api/engines/{id}/launch` · `POST /api/engines/{id}/server`: Arranque por modelo (Splash) y ciclo de vida gestionado por otro supervisor (Ollama).
 * `GET /api/engines/{id}/metrics` · `GET /api/engines/{id}/logs` · `POST /api/engines/{id}/restart`: Métricas, logs y reinicio seguro del motor.
+* `GET /api/skills`: Instantánea del catálogo (skills con categoría efectiva, grupos con conteo, raíces, entradas huérfanas y estado del LLM).
+* `GET /api/skills/detail?id=...`: `SKILL.md` completo e inventario de archivos del skill.
+* `POST /api/skills/tags`: Reasigna categoría y/o tags en el índice overlay (nunca en el `SKILL.md`).
+* `POST /api/skills/analyze`: Explicación del skill en streaming SSE; persiste el resultado, la categoría y los tags al terminar.
+* `POST /api/skills/chat`: Chat SSE con el `SKILL.md` como contexto.
+* `POST /api/skills/deepdive`: Lanza una sesión `pi` (con herramientas) contra el skill y devuelve el `run_id` que consume la pestaña Analysis.
 * `WS /ws/analyze`: Canal WebSocket para streaming de análisis y ejecución de herramientas interactivas.
 
 ---

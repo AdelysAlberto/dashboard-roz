@@ -48,6 +48,12 @@
   grid-template-columns: 1fr;
 }
 
+/* Skills: taxonomy rail, the ficha, and the analyst chat. */
+.main-grid-container.grid-skills {
+  /* Right rail (skill chat) +10% vs the previous 348px: answers are prose, not a form. */
+  grid-template-columns: 306px 1fr 382px;
+}
+
 /* Responsive collapse on smaller windows */
 @media (max-width: 1100px) {
   .main-grid-container {
@@ -67,5 +73,14 @@
 @media (max-width: 1100px) {
   .main-grid-container.grid-services {
     grid-template-columns: 1fr;
+  }
+  .main-grid-container.grid-skills {
+    grid-template-columns: 268px 1fr 352px;
+  }
+}
+
+@media (max-width: 900px) {
+  .main-grid-container.grid-skills {
+    grid-template-columns: 240px 1fr;
   }
 }

@@ -1,4 +1,4 @@
-import { Activity, Bot, FileText, LayoutGrid } from 'lucide-react';
+import { Activity, Bot, FileText, LayoutGrid, Sparkles } from 'lucide-react';
 import React from 'react';
 import { ActionSidebar } from '../../features/actions/components/ActionSidebar';
 import { AnalysisPane } from '../../features/analysis/components/AnalysisPane';
@@ -8,6 +8,9 @@ import { useMonitorSessions } from '../../features/monitor/hooks/useMonitorSessi
 import { MonitorPane } from '../../features/monitor/components/MonitorPane';
 import { ScanPathsModal } from '../../features/paths/components/ScanPathsModal';
 import { ServicesPane } from '../../features/services/components/ServicesPane';
+import { SkillChatRail } from '../../features/skills/components/SkillChatRail';
+import { SkillSidebar } from '../../features/skills/components/SkillSidebar';
+import { SkillsPane } from '../../features/skills/components/SkillsPane';
 import { ValidationModal } from '../../features/validation/components/ValidationModal';
 import { useAnalysisStore } from '../../stores/useAnalysisStore';
 import { useDocSelectionStore } from '../../stores/useDocSelectionStore';
@@ -48,6 +51,11 @@ export const MainLayout: React.FC = () => {
       dotColor: 'var(--color-done)',
     },
     {
+      id: 'skills' as ActiveTab,
+      label: 'Skills',
+      icon: <Sparkles size={14} />,
+    },
+    {
       id: 'services' as ActiveTab,
       label: 'Services',
       icon: <LayoutGrid size={14} />,
@@ -55,16 +63,21 @@ export const MainLayout: React.FC = () => {
   ];
 
   const isServices = activeTab === 'services';
+  const isSkills = activeTab === 'skills';
 
   return (
     <div className="main-layout-root">
       <Header />
 
-      <main className={`main-grid-container ${isServices ? 'grid-services' : ''}`}>
-        {/* Left Column: Documents List & Filters */}
+      <main
+        className={`main-grid-container ${isServices ? 'grid-services' : ''} ${
+          isSkills ? 'grid-skills' : ''
+        }`}
+      >
+        {/* Left Column: Documents List & Filters (skill taxonomy on the Skills tab) */}
         {!isServices && (
           <section className="column-left">
-            <DocSidebar />
+            {isSkills ? <SkillSidebar /> : <DocSidebar />}
           </section>
         )}
 
@@ -82,14 +95,15 @@ export const MainLayout: React.FC = () => {
             {activeTab === 'doc' && <DocViewer />}
             {activeTab === 'analysis' && <AnalysisPane />}
             {activeTab === 'monitor' && <MonitorPane />}
+            {activeTab === 'skills' && <SkillsPane />}
             {activeTab === 'services' && <ServicesPane />}
           </div>
         </section>
 
-        {/* Right Column: Actions & AI Launcher */}
+        {/* Right Column: Actions & AI Launcher (skill chat on the Skills tab) */}
         {!isServices && (
           <section className="column-right">
-            <ActionSidebar />
+            {isSkills ? <SkillChatRail /> : <ActionSidebar />}
           </section>
         )}
       </main>
