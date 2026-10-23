@@ -12,14 +12,21 @@ import time
 from pathlib import Path
 from typing import Any
 
-from server.providers.base import BaseAgentProvider
+from server.providers.base import BaseAgentProvider, InterruptOutcome
 
+OPENCODE_BIN = os.environ.get("OPENCODE_BIN", "opencode")
 OPENCODE_DB_PATH = Path(
     os.environ.get(
         "OPENCODE_DB_PATH",
         os.path.expanduser("~/.local/share/opencode/opencode.db"),
     )
 )
+
+# opencode keeps every execution inside its background server process, so a
+# session has no pid of its own. All three rungs are served by its HTTP API.
+OC_INTERRUPT_LEVELS: tuple[str, ...] = ("tool", "turn", "kill")
+_OC_API_TIMEOUT = 20
+_SERVICE_RE = re.compile(r"\bopencode\b.*\bserve\b|--service\b")
 
 STALL_SECONDS = 180
 QUIET_SECONDS = 25
@@ -44,6 +51,43 @@ def _fmt_model(raw: str | None) -> tuple[str, str]:
     return (str(raw)[:64], "")
 
 
+def _local_hhmmss(ts_ms: float) -> str:
+    """Local clock for the dashboard log. The UI reads times in operator timezone."""
+    return time.strftime("%H:%M:%S", time.localtime(ts_ms / 1000.0))
+
+
+def _oc_api(method: str, path: str, params: dict[str, str] | None = None) -> Any:
+    """Call the running opencode server through its CLI (`opencode api`).
+
+    Going through the CLI keeps auth and server discovery in opencode's hands:
+    the HTTP surface requires a token the dashboard has no business storing.
+    """
+    argv = [OPENCODE_BIN, "api", method, path]
+    for key, value in (params or {}).items():
+        argv += ["--param", f"{key}={value}"]
+    try:
+        proc = subprocess.run(
+            argv, capture_output=True, text=True, timeout=_OC_API_TIMEOUT
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise RuntimeError(f"opencode api {method} {path} failed: {e}") from e
+    if proc.returncode != 0:
+        msg = (proc.stderr or proc.stdout or "").strip()[:300]
+        raise RuntimeError(f"opencode api {method} {path} exit={proc.returncode}: {msg}")
+    out = (proc.stdout or "").strip()
+    if not out:
+        return None
+    try:
+        payload = json.loads(out)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"opencode api returned non-JSON: {out[:120]}") from e
+    # The CLI wraps every response as {"location": {...}, "data": <body>}.
+    # Unwrap here so callers see the documented body, not the envelope.
+    if isinstance(payload, dict) and "data" in payload and "location" in payload:
+        return payload["data"]
+    return payload
+
+
 def _live_opencode_pids() -> list[int]:
     try:
         out = subprocess.run(
@@ -63,6 +107,61 @@ def _live_opencode_pids() -> list[int]:
         if "opencode" in cmd.lower() and "grep" not in cmd and "uvicorn" not in cmd and "python" not in cmd:
             pids.append(int(pid))
     return pids
+
+
+def _service_pids() -> list[int]:
+    """The shared background server. Never signal it: every session rides on it."""
+    try:
+        out = subprocess.run(
+            ["ps", "-axo", "pid=,command="],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout
+    except Exception:  # noqa: BLE001
+        return []
+    pids = []
+    for line in out.splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) < 2:
+            continue
+        pid, cmd = parts
+        if _SERVICE_RE.search(cmd.lower()):
+            pids.append(int(pid))
+    return pids
+
+
+def _client_pids(cwd: str) -> list[int]:
+    """opencode processes that are NOT the shared server (TUI clients)."""
+    servers = set(_service_pids())
+    return [pid for pid in _live_opencode_pids() if pid not in servers]
+
+
+def _session_cwd(sid: str) -> str:
+    """Project directory of one opencode session, or '' when unknown."""
+    conn = _get_db_connection()
+    if conn is None:
+        return ""
+    try:
+        row = conn.execute(
+            "SELECT directory FROM session_v2 WHERE id = ?", (sid,)
+        ).fetchone()
+        return str(row[0] or "") if row else ""
+    except sqlite3.Error:
+        return ""
+    finally:
+        conn.close()
+
+
+def _running_shells(cwd: str) -> list[dict]:
+    """Shells the server is executing right now, narrowed to one project."""
+    shells = _oc_api("GET", "/api/shell")
+    if not isinstance(shells, list):
+        return []
+    running = [s for s in shells if isinstance(s, dict) and s.get("status") == "running"]
+    if not cwd:
+        return running
+    return [s for s in running if str(s.get("cwd") or "").startswith(cwd)]
 
 
 def _get_db_connection() -> sqlite3.Connection | None:
@@ -85,6 +184,7 @@ class OpenCodeAgentProvider(BaseAgentProvider):
     """Provider for discovering, reading logs and controlling OpenCode agents."""
 
     name = "opencode"
+    interrupt_levels = OC_INTERRUPT_LEVELS
 
     def list_sessions(self, project_cwds: list[str]) -> list[dict[str, Any]]:
         conn = _get_db_connection()
@@ -278,6 +378,7 @@ class OpenCodeAgentProvider(BaseAgentProvider):
                             "pid": primary_pid if state in ("active", "quiet", "stalled") else None,
                             "last_activity": last_activity or ("(activo)" if state == "active" else "(sin actividad registrada)"),
                             "size": 0,
+                            "interrupt_levels": list(OC_INTERRUPT_LEVELS),
                         }
                     )
 
@@ -354,6 +455,7 @@ class OpenCodeAgentProvider(BaseAgentProvider):
                             "pid": None,
                             "last_activity": "(finalizado)",
                             "size": 0,
+                            "interrupt_levels": list(OC_INTERRUPT_LEVELS),
                         }
                     )
             except Exception:  # noqa: BLE001
@@ -389,7 +491,7 @@ class OpenCodeAgentProvider(BaseAgentProvider):
                 for r in msg_rows:
                     m_type = r["type"]
                     t_ms = r["time_created"] or 0
-                    ts = time.strftime("%H:%M:%S", time.gmtime(t_ms / 1000.0)) if t_ms else ""
+                    ts = _local_hhmmss(t_ms) if t_ms else ""
                     try:
                         d = json.loads(r["data"])
                     except Exception:
@@ -445,7 +547,7 @@ class OpenCodeAgentProvider(BaseAgentProvider):
 
                 for r in part_rows:
                     t_ms = r["time_created"] or 0
-                    ts = time.strftime("%H:%M:%S", time.gmtime(t_ms / 1000.0)) if t_ms else ""
+                    ts = _local_hhmmss(t_ms) if t_ms else ""
                     try:
                         d = json.loads(r["data"])
                     except Exception:
@@ -479,9 +581,82 @@ class OpenCodeAgentProvider(BaseAgentProvider):
         return out[-lines:]
 
     def kill_session(self, target: str) -> int:
-        pids = _live_opencode_pids()
-        if not pids:
-            raise RuntimeError("No live OpenCode process found")
-        pid = pids[0]
-        os.kill(pid, signal.SIGTERM)
-        return pid
+        outcome = self.interrupt(target, "kill")
+        if not outcome.ok:
+            raise RuntimeError(outcome.detail)
+        return outcome.pids[0] if outcome.pids else 0
+
+    def interrupt(self, target: str, level: str = "tool") -> InterruptOutcome:
+        if level not in OC_INTERRUPT_LEVELS:
+            return InterruptOutcome(False, self.name, level, f"unknown level '{level}'")
+        sid = target[len("opencode://"):] if target.startswith("opencode://") else ""
+        if not sid:
+            return InterruptOutcome(
+                False, self.name, level, f"not an opencode session target: {target}"
+            )
+        if not _live_opencode_pids():
+            return InterruptOutcome(False, self.name, level, "No live OpenCode process found")
+
+        if level == "tool":
+            try:
+                shells = _running_shells(_session_cwd(sid))
+            except RuntimeError as e:
+                return InterruptOutcome(False, self.name, level, str(e))
+            if not shells:
+                return InterruptOutcome(
+                    False, self.name, level,
+                    "no running shell reported by the server (the tool may run "
+                    "in-process; use 'turn')",
+                )
+            killed: list[int] = []
+            names: list[str] = []
+            errors: list[str] = []
+            for shell in shells:
+                shell_id = str(shell.get("id") or "")
+                try:
+                    _oc_api("DELETE", f"/api/shell/{shell_id}")
+                except RuntimeError as e:
+                    errors.append(str(e))
+                    continue
+                names.append(f"{shell_id} ({str(shell.get('command') or '')[:60]})")
+                if isinstance(shell.get("pid"), int):
+                    killed.append(shell["pid"])
+            if not names:
+                return InterruptOutcome(
+                    False, self.name, level, "; ".join(errors) or "shell.remove failed"
+                )
+            return InterruptOutcome(
+                True, self.name, level, "shell removed: " + ", ".join(names),
+                tuple(killed), tuple(names),
+            )
+
+        # turn / kill both ride the session API: `resume` is exactly the
+        # difference between cutting the turn and abandoning it.
+        resume = "true" if level == "turn" else "false"
+        try:
+            res = _oc_api("POST", f"/api/session/{sid}/interrupt", {"resume": resume})
+        except RuntimeError as e:
+            return InterruptOutcome(False, self.name, level, str(e))
+        interrupted = bool((res or {}).get("interrupted")) if isinstance(res, dict) else False
+        if not interrupted:
+            if level == "kill":
+                client = _client_pids(_session_cwd(sid))
+                if client:
+                    try:
+                        os.kill(client[0], signal.SIGTERM)
+                    except (ProcessLookupError, PermissionError) as e:
+                        return InterruptOutcome(False, self.name, level, str(e))
+                    return InterruptOutcome(
+                        True, self.name, level,
+                        f"no active execution; SIGTERM sent to opencode client PID {client[0]}",
+                        (client[0],), (sid,),
+                    )
+            return InterruptOutcome(
+                False, self.name, level,
+                "the server reported no active execution for this session",
+            )
+        return InterruptOutcome(
+            True, self.name, level,
+            f"session.interrupt resume={resume}",
+            (), (sid,),
+        )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -16,7 +17,11 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from server import (  # noqa: E402
+    auth,
     engines_api,
+    image_test_api,
+    latigazo,
+    llm_test_api,
     mdstore,
     monitor,
     pilot,
@@ -25,9 +30,17 @@ from server import (  # noqa: E402
 )
 
 app = FastAPI(title="roz")
+
+# HTTP Basic on everything that arrives from off-box. Loopback stays open so the
+# local tooling and the documented `curl 127.0.0.1:PORT` checks keep working.
+_CREDENTIALS = auth.credentials_from_env()
+if _CREDENTIALS:
+    app.add_middleware(auth.BasicAuthMiddleware, **_CREDENTIALS)
 app.include_router(services_api.router)
 app.include_router(engines_api.router)
 app.include_router(skills_api.router)
+app.include_router(llm_test_api.router)
+app.include_router(image_test_api.router)
 
 WEB = BASE / "web"
 
@@ -36,6 +49,9 @@ WEB = BASE / "web"
 def _startup():
     paths = [p.strip() for p in os.environ.get("ROZ_SCAN_PATHS", "").split(",") if p.strip()]
     mdstore.init_roots(paths)
+    host = os.environ.get("ROZ_HOST", "127.0.0.1")
+    gate = f"basic auth for {_CREDENTIALS['user']}" if _CREDENTIALS else "NO AUTH"
+    print(f"[roz] bind {host} · {gate} (loopback exempt)")
 
 
 # ── API ────────────────────────────────────────────────────────────────
@@ -204,11 +220,65 @@ def _monitor_cwds() -> list[str]:
 
 @app.get("/api/monitor/sessions")
 def get_monitor_sessions():
-    return {"sessions": monitor.list_sessions(_monitor_cwds())}
+    sessions = monitor.list_sessions(_monitor_cwds())
+    return {"sessions": sessions, "latigazo": _watchdog(sessions), "cache": monitor.cache_stats()}
+
+
+@app.post("/api/monitor/cache/refresh")
+def post_monitor_cache_refresh():
+    """Drop the transcript cache. The next listing re-reads every JSONL from disk."""
+    return {"ok": True, "cache": monitor.refresh_cache()}
+
+
+_WATCHDOG_INTERVAL = int(os.environ.get("ROZ_WATCHDOG_INTERVAL", "15"))
+_last_watchdog = [0.0]
+
+
+def _watchdog(sessions: list[dict]) -> list[dict]:
+    """Run the latigazo over fresh telemetry, throttled.
+
+    The dashboard already polls this endpoint every few seconds, so the
+    watchdog rides that pass instead of scanning the process table twice.
+    """
+    now = time.time()
+    if now - _last_watchdog[0] < _WATCHDOG_INTERVAL:
+        return latigazo.audit()
+    _last_watchdog[0] = now
+    actions = latigazo.run(sessions, monitor.interrupt_session)
+    if actions:
+        for a in actions:
+            print(
+                f"[latigazo] {a['level']} {a['provider']} {a['agent'] or a['path']} "
+                f"ok={a['ok']} :: {a['detail']}"
+            )
+    # Surface the last automatic cut on the session it hit, so the dashboard
+    # can say what it did without a second endpoint.
+    latest: dict[str, dict] = {}
+    for entry in latigazo.audit():
+        latest[entry["path"]] = entry
+    for session in sessions:
+        hit = latest.get(str(session.get("path") or ""))
+        if hit:
+            session["latigazo"] = hit
+    return latigazo.audit()
 
 
 class SessionIn(BaseModel):
     path: str
+
+
+class InterruptIn(BaseModel):
+    path: str
+    level: str = "tool"
+
+
+@app.post("/api/monitor/interrupt")
+def post_monitor_interrupt(body: InterruptIn):
+    """Latigazo: cut the tool in flight ('tool'), the turn ('turn') or the agent ('kill')."""
+    try:
+        return monitor.interrupt_session(body.path, body.level)
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(400, str(e)) from e
 
 
 @app.get("/api/monitor/log")
@@ -221,9 +291,8 @@ def get_monitor_log(path: str, lines: int = 120):
 
 @app.post("/api/monitor/wake")
 def post_monitor_wake(body: SessionIn):
-    """'Latigazo': the child pi runs with stdin ignored, so a stuck subagent
-    cannot receive a new prompt — the only recovery is SIGTERM (same as pi's
-    own abort). The dispatcher session then sees the failure and can re-dispatch."""
+    """Legacy alias of level `kill`. Prefer /api/monitor/interrupt: cutting the
+    tool in flight ('tool') recovers a wedged session without losing the turn."""
     try:
         pid = monitor.kill_session(body.path)
         return {"ok": True, "pid": pid}

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from server.providers import registry
+from server import session_cache
 
 
 def _session_sort_key(s: dict):
@@ -36,3 +37,20 @@ def kill_session(path: str) -> int:
     if not provider:
         raise ValueError(f"No provider found to handle target: {path}")
     return provider.kill_session(path)
+
+
+def interrupt_session(path: str, level: str = "tool") -> dict[str, Any]:
+    provider = registry.resolve_provider(path)
+    if not provider:
+        raise ValueError(f"No provider found to handle target: {path}")
+    return provider.interrupt(path, level).as_dict()
+
+
+def refresh_cache() -> dict[str, int]:
+    """Drop the parsed-transcript cache; the next listing reads from disk."""
+    session_cache.clear()
+    return session_cache.stats()
+
+
+def cache_stats() -> dict[str, int]:
+    return session_cache.stats()

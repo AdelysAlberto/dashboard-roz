@@ -1,9 +1,13 @@
-import { Activity, Bot, FileText, LayoutGrid, Sparkles } from 'lucide-react';
+import { Activity, Bot, FileText, FlaskConical, ImageIcon, LayoutGrid, Sparkles } from 'lucide-react';
 import React from 'react';
 import { ActionSidebar } from '../../features/actions/components/ActionSidebar';
 import { AnalysisPane } from '../../features/analysis/components/AnalysisPane';
 import { DocSidebar } from '../../features/documents/components/DocSidebar';
 import { DocViewer } from '../../features/documents/components/DocViewer';
+import { ImageTestForm } from '../../features/imageTest/components/ImageTestForm';
+import { ImageTestPane } from '../../features/imageTest/components/ImageTestPane';
+import { LlmTestForm } from '../../features/llmTest/components/LlmTestForm';
+import { LlmTestPane } from '../../features/llmTest/components/LlmTestPane';
 import { useMonitorSessions } from '../../features/monitor/hooks/useMonitorSessions';
 import { MonitorPane } from '../../features/monitor/components/MonitorPane';
 import { ScanPathsModal } from '../../features/paths/components/ScanPathsModal';
@@ -14,6 +18,8 @@ import { SkillsPane } from '../../features/skills/components/SkillsPane';
 import { ValidationModal } from '../../features/validation/components/ValidationModal';
 import { useAnalysisStore } from '../../stores/useAnalysisStore';
 import { useDocSelectionStore } from '../../stores/useDocSelectionStore';
+import { useImageTestStore } from '../../stores/useImageTestStore';
+import { useLayoutStore } from '../../stores/useLayoutStore';
 import { ActiveTab } from '../../types/common';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { Tabs } from '../ui/Tabs';
@@ -26,6 +32,8 @@ export const MainLayout: React.FC = () => {
   const setActiveTab = useDocSelectionStore((state) => state.setActiveTab);
   const hasUnseenEvent = useAnalysisStore((state) => state.hasUnseenEvent);
   const isRunning = useAnalysisStore((state) => state.isRunning);
+  const railCollapsed = useLayoutStore((state) => state.railCollapsed);
+  const isImageRunning = useImageTestStore((state) => state.isRunning);
 
   const { data: sessions = [] } = useMonitorSessions();
   const liveMonitorSessions = sessions.filter((s) => s.state !== 'ended').length;
@@ -56,6 +64,20 @@ export const MainLayout: React.FC = () => {
       icon: <Sparkles size={14} />,
     },
     {
+      id: 'llm' as ActiveTab,
+      label: 'Test IA',
+      icon: <FlaskConical size={14} />,
+      dot: isRunning,
+      dotColor: 'var(--accent)',
+    },
+    {
+      id: 'image' as ActiveTab,
+      label: 'Test Imagen',
+      icon: <ImageIcon size={14} />,
+      dot: isImageRunning,
+      dotColor: 'var(--accent)',
+    },
+    {
       id: 'services' as ActiveTab,
       label: 'Services',
       icon: <LayoutGrid size={14} />,
@@ -64,31 +86,46 @@ export const MainLayout: React.FC = () => {
 
   const isServices = activeTab === 'services';
   const isSkills = activeTab === 'skills';
+  const isLlmTest = activeTab === 'llm';
+  const isImageTest = activeTab === 'image';
+  const isLab = isLlmTest || isImageTest;
+
+  const gridClass = [
+    'main-grid-container',
+    isServices ? 'grid-services' : '',
+    isSkills ? 'grid-skills' : '',
+    isLab ? 'grid-lab' : '',
+    railCollapsed && !isServices && !isLab ? 'rail-collapsed' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const rightRail = isLlmTest ? (
+    <LlmTestForm />
+  ) : isImageTest ? (
+    <ImageTestForm />
+  ) : isSkills ? (
+    <SkillChatRail />
+  ) : (
+    <ActionSidebar />
+  );
 
   return (
     <div className="main-layout-root">
       <Header />
 
-      <main
-        className={`main-grid-container ${isServices ? 'grid-services' : ''} ${
-          isSkills ? 'grid-skills' : ''
-        }`}
-      >
+      <main className={gridClass}>
         {/* Left Column: Documents List & Filters (skill taxonomy on the Skills tab) */}
-        {!isServices && (
+        {!isServices && !isLab && (
           <section className="column-left">
             {isSkills ? <SkillSidebar /> : <DocSidebar />}
           </section>
         )}
 
-        {/* Center Column: Viewer / Analysis / Monitor */}
+        {/* Center Column: Viewer / Analysis / Monitor / Lab result */}
         <section className="column-center">
           <div className="center-tabs-wrapper">
-            <Tabs
-              tabs={tabs}
-              activeTab={activeTab}
-              onChange={(tab) => setActiveTab(tab)}
-            />
+            <Tabs tabs={tabs} activeTab={activeTab} onChange={(tab) => setActiveTab(tab)} />
           </div>
 
           <div className="center-content-area">
@@ -96,16 +133,14 @@ export const MainLayout: React.FC = () => {
             {activeTab === 'analysis' && <AnalysisPane />}
             {activeTab === 'monitor' && <MonitorPane />}
             {activeTab === 'skills' && <SkillsPane />}
+            {activeTab === 'llm' && <LlmTestPane />}
+            {activeTab === 'image' && <ImageTestPane />}
             {activeTab === 'services' && <ServicesPane />}
           </div>
         </section>
 
-        {/* Right Column: Actions & AI Launcher (skill chat on the Skills tab) */}
-        {!isServices && (
-          <section className="column-right">
-            {isSkills ? <SkillChatRail /> : <ActionSidebar />}
-          </section>
-        )}
+        {/* Right Column: Actions & AI Launcher (skill chat on Skills, lab form on the labs) */}
+        {!isServices && <section className="column-right">{rightRail}</section>}
       </main>
 
       {/* Global Modals & Notifications */}

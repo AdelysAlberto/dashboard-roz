@@ -1,11 +1,10 @@
-import { ArrowLeft, Zap } from 'lucide-react';
+import { ArrowLeft, Scissors, Square, UserX } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
-import { api } from '../../../services/api';
 import { useModalStore } from '../../../stores/useModalStore';
-import { useToastStore } from '../../../stores/useToastStore';
 import { SubagentSession } from '../../../types/pilot';
+import { useLatigazo } from '../hooks/useLatigazo';
 import { useSessionLog } from '../hooks/useSessionLog';
 import './SessionDetail.css';
 
@@ -17,8 +16,9 @@ interface SessionDetailProps {
 export const SessionDetail: React.FC<SessionDetailProps> = ({ session, onBack }) => {
   const { data: events = [], isLoading } = useSessionLog(session.path);
   const openConfirm = useModalStore((state) => state.openConfirm);
-  const toast = useToastStore();
   const logRef = useRef<HTMLDivElement>(null);
+  const { cut, pendingLevel } = useLatigazo(session.path);
+  const levels = session.interrupt_levels ?? ['tool', 'kill'];
 
   useEffect(() => {
     if (logRef.current) {
@@ -28,18 +28,21 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, onBack })
 
   const handleAbort = () => {
     openConfirm({
-      title: 'Abort Subagent Process',
-      message: `Send SIGTERM signal to @${session.agent} (PID: ${session.pid})?\n\nSubagents run with closed stdin. Aborting is the recovery mechanism so the parent dispatcher sees the failure and can re-launch.`,
-      confirmLabel: 'Send SIGTERM',
+      title: 'Terminate session process',
+      message: `Send SIGTERM to @${session.agent} (PID: ${session.pid})?\n\nThe turn is lost; the transcript survives in the session file and can be resumed with --continue. To keep the turn, use "Cut tool" instead.`,
+      confirmLabel: 'Terminate',
       isDanger: true,
-      onConfirm: async () => {
-        try {
-          const res = await api.killSession(session.path);
-          toast.success(`Abort signal sent to pid ${res.pid}`);
-        } catch (err) {
-          toast.error(err instanceof Error ? err.message : 'Failed to send abort signal');
-        }
-      },
+      onConfirm: () => cut('kill'),
+    });
+  };
+
+  const handleCutTurn = () => {
+    openConfirm({
+      title: 'Abort the turn',
+      message: `Abort the current turn of @${session.agent}?\n\nThe session stays alive and resumable, but the work in progress is dropped.`,
+      confirmLabel: 'Abort turn',
+      isDanger: false,
+      onConfirm: () => cut('turn'),
     });
   };
 
@@ -69,16 +72,41 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, onBack })
           </Badge>
         </div>
 
-        {session.kind !== 'primary' && session.pid && (
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={handleAbort}
-            leftIcon={<Zap size={14} />}
-            title="Subagents run with stdin closed; the only nudge available is SIGTERM (abort)"
-          >
-            Abort Process
-          </Button>
+        {session.state !== 'ended' && (
+          <div className="detail-actions">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => cut('tool')}
+              isLoading={pendingLevel === 'tool'}
+              leftIcon={<Scissors size={14} />}
+              title="Kill the process of the tool call in flight. The agent receives exit 143 and resumes the turn with its context intact."
+            >
+              Cut tool
+            </Button>
+            {levels.includes('turn') && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleCutTurn}
+                isLoading={pendingLevel === 'turn'}
+                leftIcon={<Square size={14} />}
+                title="Abort the agent turn. The session survives and can be resumed."
+              >
+                Abort turn
+              </Button>
+            )}
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleAbort}
+              isLoading={pendingLevel === 'kill'}
+              leftIcon={<UserX size={14} />}
+              title="SIGTERM the agent process. Last resort: the turn is lost."
+            >
+              Terminate
+            </Button>
+          </div>
         )}
       </div>
 
@@ -87,6 +115,16 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({ session, onBack })
         <div className="detail-task-label">Assigned Task</div>
         <p className="detail-task-text">{session.task}</p>
       </div>
+
+      {session.latigazo && (
+        <div className={`detail-latigazo ${session.latigazo.ok ? '' : 'is-failed'}`}>
+          <Scissors size={13} />
+          <span>
+            Watchdog cut <code>{session.latigazo.level}</code> at {session.latigazo.ts.slice(11)} —{' '}
+            {session.latigazo.reason}. {session.latigazo.detail}
+          </span>
+        </div>
+      )}
 
       {/* Log Feed */}
       <div className="detail-log-list" ref={logRef}>

@@ -18,4 +18,8 @@ export const queryKeys = {
   engineTasks: (id: string | null) => ['engines', id, 'tasks'] as const,
   engineJobs: ['engines', 'jobs'] as const,
   hfSearch: (id: string | null, q: string) => ['engines', id, 'hf', q] as const,
+  llmTestDefaults: ['llm-test', 'defaults'] as const,
+  llmTestPreview: (payload: unknown) => ['llm-test', 'preview', payload] as const,
+  imageTestDefaults: ['image-test', 'defaults'] as const,
+  imageTestPreview: (payload: unknown) => ['image-test', 'preview', payload] as const,
 };

@@ -11,6 +11,8 @@ export interface ModalProps {
   footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+  /** Whether a click on the backdrop closes the modal. Defaults to true. */
+  closeOnBackdrop?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -21,6 +23,7 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
   size = 'md',
   className = '',
+  closeOnBackdrop = true,
 }) => {
   const overlayPressStarted = useRef(false);
 
@@ -31,7 +34,7 @@ export const Modal: React.FC<ModalProps> = ({
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const startedOnOverlay = overlayPressStarted.current;
     overlayPressStarted.current = false;
-    if (e.target === e.currentTarget && startedOnOverlay) {
+    if (closeOnBackdrop && e.target === e.currentTarget && startedOnOverlay) {
       onClose();
     }
   };

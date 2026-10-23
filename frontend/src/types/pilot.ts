@@ -25,6 +25,38 @@ export interface SubagentSession {
   idle_seconds: number;
   last_activity: string;
   pid?: number;
+  interrupt_levels?: InterruptLevel[];
+  latigazo?: LatigazoAction;
+}
+
+export type InterruptLevel = 'tool' | 'turn' | 'kill';
+
+export interface CacheStats {
+  hits: number;
+  misses: number;
+  evictions: number;
+  clears: number;
+  entries: number;
+}
+
+export interface InterruptResult {
+  ok: boolean;
+  provider: string;
+  level: InterruptLevel | string;
+  detail: string;
+  pids: number[];
+  targets: string[];
+}
+
+export interface LatigazoAction {
+  ts: string;
+  path: string;
+  agent: string;
+  provider: string;
+  level: string;
+  reason: string;
+  ok: boolean;
+  detail: string;
 }
 
 export interface MonitorLogEvent {

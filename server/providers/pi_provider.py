@@ -14,9 +14,24 @@ import time
 from pathlib import Path
 from typing import Any
 
-from server.providers.base import BaseAgentProvider
+from server.providers.base import BaseAgentProvider, InterruptOutcome
+from server import pilot, session_cache
 
 LEGACY_SESSIONS_DIR = "~/.pi/agent/sessions"
+
+# pi exposes no external abort for a TUI-owned turn: RPC is stdin/stdout of a
+# child process, not a socket. `turn` is therefore advertised only for sessions
+# this process owns through `pilot.py` (see `_interrupt_levels`).
+PI_INTERRUPT_LEVELS: tuple[str, ...] = ("tool", "kill")
+PI_OWNED_INTERRUPT_LEVELS: tuple[str, ...] = ("tool", "turn", "kill")
+
+# A bash tool child is either a shell wrapper (`bash -c "cd x && grep"`) or, when
+# bash execs a single simple command, the command itself (`sleep 600`). MCP
+# servers are children of pi too and are also process-group leaders, so neither
+# pgid nor ppid can tell them apart: the in-flight command from the transcript
+# plus the shell prefix do.
+_SHELL_TOOL_RE = re.compile(r"(^|/)(ba|z|da|k)?sh\s+-[A-Za-z]*c\b")
+_KILL_GRACE_SECONDS = 2.0
 
 STALL_SECONDS = 180
 QUIET_SECONDS = 15
@@ -86,6 +101,104 @@ def _match_pid(path: Path, pids: dict[float, int]) -> int | None:
         if delta < best_delta:
             best, best_delta = pid, delta
     return best
+
+
+def _local_hhmmss(ts_s: float) -> str:
+    """Local clock for the dashboard log. The UI reads times in operator timezone."""
+    return time.strftime("%H:%M:%S", time.localtime(ts_s))
+
+
+def _child_processes(pid: int) -> list[dict]:
+    """Live (non-zombie) direct children of `pid` with their process group."""
+    try:
+        out = subprocess.run(
+            ["ps", "-axo", "pid=,ppid=,pgid=,stat=,command="],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout
+    except Exception:  # noqa: BLE001
+        return []
+    rows: list[dict] = []
+    for line in out.splitlines():
+        parts = line.split(None, 4)
+        if len(parts) < 5:
+            continue
+        cpid, ppid, pgid, stat, cmd = parts
+        if int(ppid) != pid or "Z" in stat:
+            continue
+        rows.append({"pid": int(cpid), "pgid": int(pgid), "cmd": cmd})
+    return rows
+
+
+def _tool_processes(session_pid: int, command: str = "") -> list[dict]:
+    """Children of the agent that are the running tool.
+
+    Shell wrappers always qualify. Any other child qualifies only when its
+    command line matches the tool command read back from the transcript, which
+    is the case bash leaves behind after exec'ing a single simple command.
+    """
+    want = " ".join(command.split())
+    out: list[dict] = []
+    for child in _child_processes(session_pid):
+        if _SHELL_TOOL_RE.search(child["cmd"]):
+            out.append(child)
+            continue
+        got = " ".join(child["cmd"].split())
+        if want and got and (want.startswith(got) or got.startswith(want[:120])):
+            out.append(child)
+    return out
+
+
+def _last_bash_command(path: Path) -> str:
+    """Command of the most recent bash tool call in the transcript."""
+    command = ""
+    for entry in _iter_entries(path):
+        message = entry.get("message") or {}
+        if message.get("role") != "assistant":
+            continue
+        for block in message.get("content") or []:
+            if not isinstance(block, dict) or block.get("type") != "toolCall":
+                continue
+            if block.get("name") == "bash":
+                command = str((block.get("arguments") or {}).get("command") or "")
+    return command
+
+
+def _kill_group(pgid: int, grace: float = _KILL_GRACE_SECONDS) -> str:
+    """SIGTERM one process group, escalate to SIGKILL after `grace`."""
+    if pgid <= 1 or pgid == os.getpgid(0):
+        return f"refused: pgid {pgid} is not a tool group"
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except ProcessLookupError:
+        return "already gone"
+    except PermissionError:
+        return "permission denied"
+    deadline = time.time() + grace
+    while time.time() < deadline:
+        try:
+            os.killpg(pgid, 0)
+        except ProcessLookupError:
+            return "terminated"
+        time.sleep(0.1)
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except ProcessLookupError:
+        return "terminated"
+    except PermissionError:
+        return "permission denied on SIGKILL"
+    return "killed"
+
+
+def _resolve_pid(target: Path) -> tuple[int | None, Path | None]:
+    """Live agent pid for a session file, or the async run dir that holds it."""
+    for adir in _async_runs_dirs():
+        if adir.resolve() in target.parents or target.parent == adir.resolve():
+            return None, target if target.is_dir() else target.parent
+    if not _under_session_roots(target):
+        raise ValueError(f"Path outside Pi sessions dir: {target}")
+    return _match_pid(target, _live_subagent_pids()) or _match_pid(target, _live_primary_pids()), None
 
 
 def _iter_entries(path: Path):
@@ -221,6 +334,24 @@ def _project_label(safe_dir: str) -> str:
     return name.rsplit("-", 1)[-1] if "-" in name else name
 
 
+def _calls_in_file(path: Path) -> dict:
+    """Subagent calls announced in one parent transcript."""
+    calls: list[dict] = []
+    for entry in _iter_entries(path):
+        message = entry.get("message") or {}
+        if message.get("role") != "assistant":
+            continue
+        for block in message.get("content") or []:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") != "toolCall" or block.get("name") != "subagent":
+                continue
+            args = block.get("arguments") or {}
+            if args.get("task"):
+                calls.append({"agent": str(args.get("agent", "?")), "task": str(args["task"])})
+    return {"calls": calls}
+
+
 def _extract_subagent_calls(dirs: list[Path], limit_files: int) -> list[dict]:
     files: list[Path] = []
     for d in dirs:
@@ -228,15 +359,7 @@ def _extract_subagent_calls(dirs: list[Path], limit_files: int) -> list[dict]:
             files.extend(sorted(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit_files])
     entries: list[dict] = []
     for f in files:
-        for d_ in _iter_entries(f):
-            m = d_.get("message") or {}
-            if m.get("role") != "assistant":
-                continue
-            for c in m.get("content") or []:
-                if isinstance(c, dict) and c.get("type") == "toolCall" and c.get("name") == "subagent":
-                    a = c.get("arguments") or {}
-                    if a.get("task"):
-                        entries.append({"agent": str(a.get("agent", "?")), "task": str(a["task"])})
+        entries.extend(session_cache.get_or_build(f, _calls_in_file, namespace="calls")["calls"])
     return entries
 
 
@@ -260,7 +383,18 @@ def _async_runs_dirs() -> list[Path]:
     return candidates
 
 
-def _summarize_session(path: Path, pid: int | None, name_map: list[dict], *, kind: str = "subagent") -> dict:
+def _interrupt_levels(path: Path) -> tuple[str, ...]:
+    """Rungs this session can actually reach right now."""
+    owned = pilot.registry.run_for_session(str(path)) is not None
+    return PI_OWNED_INTERRUPT_LEVELS if owned else PI_INTERRUPT_LEVELS
+
+
+def _read_facts(path: Path) -> dict:
+    """Everything that depends only on the file contents.
+
+    Cached by `session_cache` against (mtime, size); nothing here may depend on
+    the process table or on a name map, or the cache would serve stale data.
+    """
     header: dict = {}
     task = ""
     last_ts = 0.0
@@ -322,6 +456,35 @@ def _summarize_session(path: Path, pid: int | None, name_map: list[dict], *, kin
             except (TypeError, ValueError):
                 pass
 
+    return {
+        "header": header,
+        "task": task,
+        "last_ts": last_ts,
+        "last_activity": last_activity,
+        "msgs": msgs,
+        "tokens": tokens,
+        "cost": cost,
+        "model_id": model_id,
+        "model_provider": model_provider,
+        "tail_role": tail_role,
+        "tail_tool": tail_tool,
+    }
+
+
+def _summarize_session(path: Path, pid: int | None, name_map: list[dict], *, kind: str = "subagent") -> dict:
+    facts = session_cache.get_or_build(path, _read_facts)
+    header = facts["header"]
+    task = facts["task"]
+    last_ts = facts["last_ts"]
+    last_activity = facts["last_activity"]
+    msgs = facts["msgs"]
+    tokens = facts["tokens"]
+    cost = facts["cost"]
+    model_id = facts["model_id"]
+    model_provider = facts["model_provider"]
+    tail_role = facts["tail_role"]
+    tail_tool = facts["tail_tool"]
+
     agent = _lookup_agent(task, name_map)
     now = time.time()
     mtime = path.stat().st_mtime
@@ -368,6 +531,7 @@ def _summarize_session(path: Path, pid: int | None, name_map: list[dict], *, kin
         "pid": pid,
         "last_activity": last_activity or "(sin actividad registrada)",
         "size": path.stat().st_size,
+        "interrupt_levels": list(_interrupt_levels(path)),
     }
 
 
@@ -375,6 +539,7 @@ class PiAgentProvider(BaseAgentProvider):
     """Provider for discovering, reading logs and controlling Pi agents."""
 
     name = "pi"
+    interrupt_levels = PI_INTERRUPT_LEVELS
 
     def list_async_subagents(self) -> list[dict]:
         out: list[dict] = []
@@ -493,6 +658,7 @@ class PiAgentProvider(BaseAgentProvider):
                         "pid": pid if is_alive else None,
                         "last_activity": last_activity or ("(activo)" if is_alive else "(finalizado)"),
                         "size": events_file.stat().st_size if events_file.exists() else 0,
+                        "interrupt_levels": list(PI_INTERRUPT_LEVELS),
                     }
                 )
         return out
@@ -588,7 +754,7 @@ class PiAgentProvider(BaseAgentProvider):
             ev_type = d.get("type")
             if ev_type in ("message_end", "tool_execution_start", "tool_execution_end", "turn_start", "agent_start"):
                 ts_val = d.get("observedAt") or d.get("ts")
-                item = {"ts": time.strftime("%H:%M:%S", time.gmtime(ts_val / 1000.0)) if ts_val else ""}
+                item = {"ts": _local_hhmmss(ts_val / 1000.0) if ts_val else ""}
                 if ev_type == "message_end":
                     m = d.get("message") or {}
                     role = m.get("role")
@@ -645,7 +811,7 @@ class PiAgentProvider(BaseAgentProvider):
                 continue
             role = m.get("role")
             ts = m.get("timestamp")
-            item = {"ts": time.strftime("%H:%M:%S", time.gmtime(ts / 1000)) if ts else ""}
+            item = {"ts": _local_hhmmss(ts / 1000.0) if ts else ""}
             if role == "assistant":
                 for c in m.get("content") or []:
                     if not isinstance(c, dict):
@@ -676,28 +842,81 @@ class PiAgentProvider(BaseAgentProvider):
         return out[-lines:]
 
     def kill_session(self, target: str) -> int:
+        outcome = self.interrupt(target, "kill")
+        if not outcome.ok:
+            raise RuntimeError(outcome.detail)
+        return outcome.pids[0] if outcome.pids else 0
+
+    def interrupt(self, target: str, level: str = "tool") -> InterruptOutcome:
+        if level not in PI_OWNED_INTERRUPT_LEVELS:
+            return InterruptOutcome(False, self.name, level, f"unknown level '{level}'")
         fp = Path(target).expanduser().resolve()
 
-        # Check async runs
-        for adir in _async_runs_dirs():
-            if adir.resolve() in fp.parents or fp.parent == adir.resolve():
-                rdir = fp if fp.is_dir() else fp.parent
-                status_file = rdir / "status.json"
-                if status_file.exists():
-                    try:
-                        data = json.loads(status_file.read_text("utf-8"))
-                        pid = data.get("pid")
-                        if pid:
-                            os.kill(pid, signal.SIGTERM)
-                            return pid
-                    except Exception as e:
-                        raise RuntimeError(f"failed to kill async process: {e}") from e
-                raise RuntimeError("no live async process found")
+        if level == "turn":
+            run = pilot.registry.run_for_session(str(fp))
+            if run is None:
+                return InterruptOutcome(
+                    False, self.name, level,
+                    "this transcript is not driven by roz: pi has no external "
+                    "turn abort, use 'tool' or 'kill'",
+                )
+            try:
+                run.abort_turn_blocking()
+            except (RuntimeError, TimeoutError) as e:
+                return InterruptOutcome(False, self.name, level, f"abort failed: {e}")
+            pid = run.proc.pid if run.proc and run.proc.pid else None
+            return InterruptOutcome(
+                True, self.name, level,
+                f"abort sent to run {run.run_id} (session stays resumable)",
+                (pid,) if pid else (),
+                (run.run_id,),
+            )
 
-        if not _under_session_roots(fp):
-            raise ValueError(f"Path outside Pi sessions dir: {target}")
-        pid = _match_pid(fp, _live_subagent_pids())
+        try:
+            pid, run_dir = _resolve_pid(fp)
+        except ValueError as e:
+            return InterruptOutcome(False, self.name, level, str(e))
+
+        if run_dir is not None:
+            status_file = run_dir / "status.json"
+            try:
+                pid = int(json.loads(status_file.read_text("utf-8")).get("pid") or 0) or None
+            except FileNotFoundError:
+                return InterruptOutcome(False, self.name, level, "no live async process found")
+            except (OSError, ValueError, json.JSONDecodeError) as e:
+                return InterruptOutcome(False, self.name, level, f"failed to read async status: {e}")
+            if not pid:
+                return InterruptOutcome(False, self.name, level, "async status has no pid")
+
         if pid is None:
-            raise RuntimeError("no live process correlated with this session")
-        os.kill(pid, signal.SIGTERM)
-        return pid
+            return InterruptOutcome(
+                False, self.name, level,
+                "no live process correlated with this session",
+            )
+
+        if level == "tool":
+            procs = _tool_processes(pid, _last_bash_command(fp) if run_dir is None else "")
+            if not procs:
+                return InterruptOutcome(
+                    False, self.name, level,
+                    f"PID {pid} has no tool process in flight (read/edit/model waits "
+                    "are not cuttable; use 'kill')",
+                )
+            results = {p["pid"]: _kill_group(p["pgid"]) for p in procs}
+            cut = tuple(p for p in results if results[p] in ("terminated", "killed"))
+            detail = "; ".join(
+                f"pgid {p['pgid']} ({p['cmd'].split()[0] if p['cmd'].split() else '?'}) "
+                f"{results[p['pid']]}"
+                for p in procs
+            )
+            return InterruptOutcome(bool(cut), self.name, level, detail, cut, tuple(
+                f"pgid:{p['pgid']}" for p in procs
+            ))
+
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            return InterruptOutcome(False, self.name, level, f"PID {pid} already gone")
+        except PermissionError:
+            return InterruptOutcome(False, self.name, level, f"no permission to signal PID {pid}")
+        return InterruptOutcome(True, self.name, level, f"SIGTERM sent to PID {pid}", (pid,))

@@ -51,6 +51,10 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  /* Shrinkable middle: the pills ellipsize instead of pushing the actions out
+     of the viewport, which is what happened at 768px. */
+  min-width: 0;
+  overflow: hidden;
 }
 
 .stat-pill {
@@ -63,6 +67,8 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
   padding: 0.2rem 0.6rem;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .stat-pill strong {
@@ -71,10 +77,49 @@
 
 .stat-model {
   color: var(--accent);
+  max-width: 16rem;
+}
+
+.stat-model span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.header-brand {
+  flex-shrink: 0;
+}
+
+/* iPad and narrower: drop the version chip, shrink the pads and turn the rail
+   toggle into an icon so the five actions still fit on one 48px row. */
+@media (max-width: 1100px) {
+  .app-header {
+    gap: 0.6rem;
+    padding: 0 0.75rem;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .stat-model {
+    max-width: 9rem;
+  }
+
+  .rail-toggle .btn-label {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .stat-model {
+    display: none;
+  }
 }

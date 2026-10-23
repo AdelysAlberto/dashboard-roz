@@ -11,7 +11,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  /* Wrap into rows instead of squeezing: at 768px the toolbar needed 659px
+     inside a 508px column and the right-hand controls were clipped. */
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
   padding: 0.65rem 1.25rem;
   background-color: var(--bg-sidebar);
   border-bottom: 1px solid var(--border-subtle);
@@ -20,7 +23,13 @@
 .toolbar-left {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  min-width: 0;
+}
+
+.toolbar-title {
+  white-space: nowrap;
 }
 
 .monitor-icon {
@@ -40,6 +49,7 @@
   padding: 0.15rem 0.5rem;
   border-radius: var(--radius-full);
   border: 1px solid var(--border-subtle);
+  white-space: nowrap;
 }
 
 .provider-filter-group {
@@ -77,7 +87,8 @@
 .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
 }
 
 .checkbox-label {
@@ -102,6 +113,17 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 0.85rem;
   align-content: start;
+}
+
+@media (max-width: 900px) {
+  .monitor-toolbar {
+    padding: 0.55rem 0.85rem;
+  }
+
+  .monitor-grid {
+    padding: 0.85rem;
+    grid-template-columns: 1fr;
+  }
 }
 
 .monitor-empty {

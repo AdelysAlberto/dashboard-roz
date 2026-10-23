@@ -53,6 +53,7 @@ La plataforma combina un motor de escaneo inteligente multi-raíz que indexa, va
   * Agrupación flexible: por carpeta raíz, por jerarquía de subcarpetas, por módulo funcional o vista plana.
   * Ordenación por relevancia temporal, orden alfabético o severidad de estado.
 * **Visor Markdown de Alto Rendimiento**: Renderizado GFM (GitHub Flavored Markdown) con resaltado de sintaxis tipado (`highlight.js`) y tabla de metadatos visuales.
+* **Diagramas Mermaid Interactivos**: Los bloques de código `mermaid` se dibujan a SVG con `pele` (paleta tomada de las variables CSS del tema) en un visor propio con zoom, arrastre y ajuste al recuadro.
 * **Acciones de Ciclo de Vida**: Transición de estado con un solo clic, reubicación a directorios de cierre (ej. `done/`) y eliminación protegida por diálogo de confirmación.
 
 ### Supervisión de Trabajadores y Agentes de IA
@@ -67,7 +68,16 @@ La plataforma combina un motor de escaneo inteligente multi-raíz que indexa, va
   * Clasificación visual de salud de la sesión (`active`, `quiet`, `stalled`). `stalled` = el agente mantiene el turno sin salida durante > 180 s; una sesión sin actividad durante `PI_IDLE_TTL` se reporta como `ended` (oculta por defecto).
   * Telemetría de inactividad (*idle seconds*) y tamaño de registros.
 * **Inspección de Logs en Streaming**: Visualización en directo de trazas de ejecución (`tail -f`) para auditar las decisiones del agente.
-* **Kill Switch Seguro**: Envío de señales de terminación controlada (`SIGTERM`) para abortar tareas que hayan entrado en bucle o consuman recursos innecesarios.
+* **Latigazo en tres peldaños**: cada provider anuncia los niveles que puede cumplir **para esa sesión** y el dashboard solo ofrece esos.
+  `tool` mata el grupo de procesos de la herramienta en vuelo: el turno recibe `exit 143` y continúa con el contexto intacto.
+  `turn` aborta el turno dejando la sesión viva y reanudable. En opencode es `session.interrupt?resume=true`; en pi solo existe para las sesiones que
+  roz conduce por RPC (`pilot.py` envía `{"type":"abort"}`), así que una sesión TUI no lo anuncia.
+  `kill` termina el proceso del agente. Opencode cubre los tres peldaños; pi cubre `tool` y `kill` siempre, y `turn` cuando el transcript es suyo.
+  Un watchdog corta `tool` a los `ROZ_LATIGAZO_TOOL_SECONDS` (300 s por defecto) en sesiones `stalled`, con cooldown y rastro en el log.
+  Nunca señala infraestructura compartida: `opencode serve --service` sirve a todas las sesiones y el corte va por su API.
+* **Caché de transcripciones**: el listado de sesiones cachea los hechos de cada `.jsonl` por `(mtime, size)`, de modo que solo se relee lo que cambió.
+  Pasada fría sobre 275 sesiones: ~258 ficheros y ~140 MB en ~0,5 s. Pasada en caliente: 0 lecturas en ~0,12 s.
+  El botón **Refresh cache** (y `POST /api/monitor/cache/refresh`) vacía la caché cuando una sesión se ve rancia.
 
 ### Motores de inferencia con panel propio (adapters)
 * **`kind` + `tags`**: cada manifest declara una categoría cerrada (`llm`, `voice`, `assistant`, `api`, `dashboard`, `infra`) y tags libres. El tablero filtra por categoría (chips con conteo) y por tag, y avisa cuando un filtro deja la grilla vacía.

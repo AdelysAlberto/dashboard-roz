@@ -1,0 +1,155 @@
+/* Primitives shared by both columns of the Test IA tab: cards, code blocks and
+   the disclosure row. Layout lives in LlmTestPane.css / LlmTestForm.css. */
+
+.llmt-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.llmt-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.llmt-card-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.llmt-card-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.llmt-card-meta {
+  font-size: 0.64rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.llmt-card-foot {
+  margin: 0;
+  padding: 0.45rem 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.llmt-card-empty {
+  margin: 0;
+  padding: 1rem 0.75rem;
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
+
+.llmt-code {
+  margin: 0;
+  padding: 0.85rem 0.9rem;
+  background: var(--code-bg);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  line-height: 1.62;
+  color: var(--text-main);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+
+.llmt-code-sm {
+  font-size: 0.66rem;
+  line-height: 1.55;
+  max-height: 22rem;
+  overflow: auto;
+}
+
+.llmt-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  background: none;
+  border: 0;
+  color: var(--text-dim);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  text-align: left;
+}
+
+.llmt-disclosure:hover {
+  color: var(--text-main);
+}
+
+.llmt-disclosure-icon {
+  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.llmt-disclosure.is-open .llmt-disclosure-icon {
+  transform: rotate(180deg);
+}
+
+.llmt-disclosure-summary {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-dim);
+  max-width: 62%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Thinking block: oMLX returns <think> output in message.reasoning_content,
+   never inside content. Collapsed so the answer stays the hero. */
+.llmt-reasoning {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.llmt-reasoning-summary {
+  padding: 0.4rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  cursor: pointer;
+  list-style: none;
+}
+
+.llmt-reasoning-summary::-webkit-details-marker {
+  display: none;
+}
+
+.llmt-reasoning-summary::before {
+  content: '▸ ';
+  color: var(--accent);
+}
+
+.llmt-reasoning[open] > .llmt-reasoning-summary::before {
+  content: '▾ ';
+}
+
+.llmt-reasoning-summary:hover {
+  color: var(--text-main);
+}

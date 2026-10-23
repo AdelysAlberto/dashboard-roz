@@ -1,5 +1,12 @@
 import { DocDetail, DocItem, StatusType, ValidationResult } from '../types/document';
-import { MonitorLogEvent, ServerConfig, SubagentSession } from '../types/pilot';
+import {
+  CacheStats,
+  InterruptResult,
+  LatigazoAction,
+  MonitorLogEvent,
+  ServerConfig,
+  SubagentSession,
+} from '../types/pilot';
 import {
   ServiceActionRequest,
   ServiceActionResult,
@@ -7,6 +14,13 @@ import {
   ServiceSnapshot,
 } from '../types/service';
 import { SkillDetail, SkillsSnapshot } from '../types/skill';
+import { LlmTestDefaults, LlmTestPreview, LlmTestRequest, LlmTestRun } from '../types/llmTest';
+import {
+  ImageTestDefaults,
+  ImageTestPreview,
+  ImageTestRequest,
+  ImageTestRun,
+} from '../types/imageTest';
 import {
   ActionOutput,
   EngineLogs,
@@ -82,10 +96,15 @@ export const api = {
   closeRun: (run_id: string) => request<{ ok: boolean }>('POST', '/api/analyze/close', { run_id }),
 
   // Monitor
-  getMonitorSessions: () => request<{ sessions: SubagentSession[] }>('GET', '/api/monitor/sessions'),
+  getMonitorSessions: () =>
+    request<{ sessions: SubagentSession[]; latigazo: LatigazoAction[] }>('GET', '/api/monitor/sessions'),
   getMonitorLog: (path: string, lines = 150) =>
     request<{ events: MonitorLogEvent[] }>('GET', `/api/monitor/log?path=${encodeURIComponent(path)}&lines=${lines}`),
   killSession: (path: string) => request<{ ok: boolean; pid: number }>('POST', '/api/monitor/wake', { path }),
+  interruptSession: (path: string, level: 'tool' | 'turn' | 'kill') =>
+    request<InterruptResult>('POST', '/api/monitor/interrupt', { path, level }),
+  refreshMonitorCache: () =>
+    request<{ ok: boolean; cache: CacheStats }>('POST', '/api/monitor/cache/refresh'),
 
   // Services
   getServices: () => request<ServiceSnapshot>('GET', '/api/services'),
@@ -126,6 +145,20 @@ export const api = {
     request<{ entry: Record<string, unknown> }>('POST', '/api/skills/tags', payload),
   skillDeepDive: (id: string, agent: string) =>
     request<{ run_id: string; path: string }>('POST', '/api/skills/deepdive', { id, agent }),
+
+  // Test IA (prompt lab)
+  getLlmTestDefaults: () => request<LlmTestDefaults>('GET', '/api/llm-test/defaults'),
+  previewLlmTest: (payload: LlmTestRequest) =>
+    request<LlmTestPreview>('POST', '/api/llm-test/preview', payload),
+  runLlmTest: (payload: LlmTestRequest) =>
+    request<LlmTestRun>('POST', '/api/llm-test/run', payload),
+
+  // Test Imagen (diffusion lab)
+  getImageTestDefaults: () => request<ImageTestDefaults>('GET', '/api/image-test/defaults'),
+  previewImageTest: (payload: ImageTestRequest) =>
+    request<ImageTestPreview>('POST', '/api/image-test/preview', payload),
+  generateImageTest: (payload: ImageTestRequest) =>
+    request<ImageTestRun>('POST', '/api/image-test/generate', payload),
 
   // Kokoro (voces)
   getKokoroVoices: (id: string) => request<KokoroVoices>('GET', `/api/engines/${id}/voices`),

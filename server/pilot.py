@@ -43,6 +43,10 @@ class AnalysisRun:
         self._task: asyncio.Task | None = None
         self._cond = asyncio.Condition()
         self._stdin_lock = asyncio.Lock()
+        # Set from pi's `get_state`; the monitor uses it to map a transcript path
+        # back to the run that owns it, which is what makes `turn` reachable.
+        self.session_file: str = ""
+        self._loop: asyncio.AbstractEventLoop | None = None
 
         self.persona = persona_path(agent)
         argv = [CONFIG["pi_bin"], "--mode", "rpc"]
@@ -72,6 +76,7 @@ class AnalysisRun:
                 ),
             })
         cwd = Path(CONFIG["project_dir"]).expanduser().resolve()
+        self._loop = asyncio.get_running_loop()
         try:
             self.proc = await asyncio.create_subprocess_exec(
                 *self.argv,
@@ -91,6 +96,7 @@ class AnalysisRun:
 
         try:
             await self._send({"type": "prompt", "message": self._first_prompt})
+            await self._send({"type": "get_state", "id": "roz-state"})
             await self._pump()
             code = await self.proc.wait()
             return await self._shutdown("exit", code)
@@ -125,6 +131,10 @@ class AnalysisRun:
                 self.idle = True
             elif ev.get("type") in ("agent_start", "turn_start"):
                 self.idle = False
+            elif ev.get("type") == "response" and ev.get("command") == "get_state":
+                session_file = (ev.get("data") or {}).get("sessionFile")
+                if isinstance(session_file, str) and session_file:
+                    self.session_file = session_file
             self.last_activity = time.time()
             await self._emit(compact_event(ev))
 
@@ -154,6 +164,18 @@ class AnalysisRun:
     async def prompt(self, message: str):
         await self._send({"type": "prompt", "message": message})
         self.idle = False
+
+    async def abort_turn(self):
+        """RPC `abort`: ends the current turn, keeps the session alive."""
+        await self._send({"type": "abort"})
+        self.idle = True
+
+    def abort_turn_blocking(self, timeout: float = 10.0) -> None:
+        """Thread-safe abort for callers outside the event loop (HTTP handlers)."""
+        if self._loop is None or self._loop.is_closed():
+            raise RuntimeError("session loop is not running")
+        future = asyncio.run_coroutine_threadsafe(self.abort_turn(), self._loop)
+        future.result(timeout=timeout)
 
     async def answer_ui(self, request_id: str, payload: dict):
         """Reply to an extension_ui_request (select/confirm/input)."""
@@ -200,6 +222,22 @@ class RunRegistry:
 
     def get(self, run_id: str) -> AnalysisRun | None:
         return self.runs.get(run_id)
+
+    def run_for_session(self, path: str) -> AnalysisRun | None:
+        """The live run that owns this transcript, or None.
+
+        Only an RPC session can be aborted at the turn level: pi exposes no
+        external abort for a TUI-owned turn.
+        """
+        if not path:
+            return None
+        target = os.path.realpath(os.path.expanduser(path))
+        for run in self.runs.values():
+            if run.exited or not run.session_file:
+                continue
+            if os.path.realpath(os.path.expanduser(run.session_file)) == target:
+                return run
+        return None
 
     def _ensure_sweeper(self):
         if self._sweeper is None or self._sweeper.done():

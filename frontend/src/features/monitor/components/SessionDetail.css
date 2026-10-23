@@ -119,3 +119,34 @@
   color: var(--text-dim);
   font-size: 0.85rem;
 }
+
+.detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.detail-latigazo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 1.25rem 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-main);
+  background-color: var(--bg-sidebar);
+  border: 1px solid var(--border-subtle);
+  border-left: 2px solid var(--accent, #d98b3a);
+  border-radius: var(--radius-xs);
+}
+
+.detail-latigazo code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+}
+
+.detail-latigazo.is-failed {
+  border-left-color: var(--danger, #d9534f);
+  opacity: 0.85;
+}

@@ -7,7 +7,7 @@ if [ ! -d .venv ]; then
   echo "[roz] creating venv…"
   python3 -m venv .venv
   .venv/bin/pip install -q --upgrade pip
-  .venv/bin/pip install -q fastapi "uvicorn[standard]" python-dotenv pyyaml
+  .venv/bin/pip install -q fastapi "uvicorn[standard]" python-dotenv pyyaml httpx
 fi
 
 if [ ! -d frontend/dist ] && command -v bun >/dev/null 2>&1; then
@@ -25,7 +25,14 @@ if [ -f .roz.pid ] && kill -0 "$(cat .roz.pid)" 2>/dev/null; then
 fi
 
 echo "[roz] starting on http://$HOST:$PORT"
-nohup .venv/bin/python -m uvicorn server.app:app --host "$HOST" --port "$PORT" > .roz.log 2>&1 &
+# roz spawns `pi` children (pilot RPC sessions). Those children must not inherit
+# the identity of whatever agent launched roz: an inherited PI_SESSION_FILE would
+# make a pilot run append to the caller's transcript, and an inherited PI_MODEL
+# can be ambiguous (`deepseek-flash` matches two providers) and kill the run at
+# startup. Drop the per-process identity; everything else resolves from .env.
+nohup env -u PI_SESSION_FILE -u PI_SESSION_ID -u PI_MODEL -u PI_PROVIDER \
+  -u PI_REASONING_LEVEL -u PI_CODING_AGENT \
+  .venv/bin/python -m uvicorn server.app:app --host "$HOST" --port "$PORT" > .roz.log 2>&1 &
 echo $! > .roz.pid
 
 sleep 1

@@ -1,0 +1,537 @@
+/* Test Imagen — the rail form and the result panel share this file: both render
+   together inside the same tab, and the primitives (card, group, note) are the
+   same in both columns. Values mirror the Test IA palette and spacing. */
+
+/* ── rail form ─────────────────────────────────────────────────────── */
+
+.it-form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background-color: var(--bg-sidebar);
+  border-left: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.it-form-head {
+  padding: 0.85rem 0.9rem 0.7rem;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.it-form-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.it-form-title {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.it-form-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.it-form-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.85rem 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.it-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.it-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 1.4rem;
+}
+
+.it-group-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.it-group-title {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 0;
+}
+
+.it-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.it-count {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.it-master .textarea-control {
+  min-height: 7.5rem;
+  max-height: 14rem;
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+.it-note {
+  margin: 0.15rem 0 0;
+  font-size: 0.66rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.it-note code {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-xs);
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  color: var(--text-muted);
+}
+
+.it-form-foot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-sidebar);
+}
+
+.it-run {
+  flex: 1;
+}
+
+.it-kbd {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  padding: 0.1rem 0.3rem;
+}
+
+/* ── orientation radios ────────────────────────────────────────────── */
+
+.it-orient {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.it-orient-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+}
+
+.it-orient-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.55rem 0.3rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.it-orient-option:hover {
+  border-color: var(--border-strong);
+}
+
+.it-orient-option.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+}
+
+/* The native radio stays in the layout for keyboard and a11y, but invisible:
+   the card itself is the control. */
+.it-orient-option input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.it-orient-option:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.it-orient-glyph {
+  width: auto;
+  height: 22px;
+  max-width: 26px;
+  border: 1.5px solid var(--text-dim);
+  border-radius: 2px;
+}
+
+.it-orient-option.is-active .it-orient-glyph {
+  border-color: var(--accent);
+}
+
+.it-orient-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+}
+
+.it-orient-pixels {
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ── result panel ──────────────────────────────────────────────────── */
+
+.it-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background-color: var(--bg-app);
+}
+
+.it-pane-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 1.1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-sidebar);
+}
+
+.it-pane-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.it-pane-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.it-pane-sub {
+  font-size: 0.66rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.it-pane-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.1rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.it-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  padding: 0.75rem 0.85rem;
+}
+
+.it-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.it-card-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.it-card-meta {
+  font-size: 0.64rem;
+  color: var(--text-dim);
+}
+
+.it-card-foot {
+  margin: 0.6rem 0 0;
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  word-break: break-all;
+}
+
+/* ── result image ──────────────────────────────────────────────────── */
+
+/* Height caps are measured against the pane, not the viewport: at iPad portrait
+   the stacked form leaves ~443px for this pane, so a 62dvh cap never engages. */
+.it-pane-scroll {
+  container-type: size;
+}
+
+.it-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.it-result-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background:
+    repeating-conic-gradient(var(--bg-input) 0% 25%, transparent 0% 50%) 50% / 18px 18px,
+    var(--bg-card);
+}
+
+.it-result-img {
+  max-width: 100%;
+  max-height: 62cqh;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+
+.it-result-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.it-result-facts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.8rem;
+  font-size: 0.66rem;
+  color: var(--text-dim);
+}
+
+.it-result-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+/* The anchors carry .btn classes so they match the Buttons next to them. */
+.it-result-actions .btn {
+  text-decoration: none;
+}
+
+/* ── running / empty ───────────────────────────────────────────────── */
+
+.it-running-line {
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: it-sweep 1.6s ease-in-out infinite;
+}
+
+@keyframes it-sweep {
+  0% {
+    background-position: -40% 0;
+  }
+  100% {
+    background-position: 140% 0;
+  }
+}
+
+.it-running-body {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding-top: 0.55rem;
+}
+
+.it-running-label {
+  font-size: 0.78rem;
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.it-running-clock {
+  font-size: 0.74rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.it-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.1rem 1.15rem;
+}
+
+.it-empty-icon {
+  color: var(--accent);
+}
+
+.it-empty-title {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-main);
+}
+
+.it-empty-body {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 52ch;
+}
+
+.it-error-msg {
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+/* ── metrics ───────────────────────────────────────────────────────── */
+
+.it-metric-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.it-metric-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.it-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.35rem 0.7rem;
+  margin: 0;
+}
+
+.it-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.it-metric.is-wide {
+  grid-column: span 2;
+}
+
+.it-metric dt {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  text-transform: lowercase;
+}
+
+.it-metric dd {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.it-prompt-details {
+  margin-top: 0.7rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.6rem;
+}
+
+.it-prompt-details summary {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.it-code {
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.65rem;
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius-sm);
+  background: var(--code-bg);
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .it-result-img {
+    max-height: 45cqh;
+  }
+
+  .it-orient-row {
+    gap: 0.35rem;
+  }
+}

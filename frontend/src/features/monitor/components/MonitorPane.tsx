@@ -1,15 +1,16 @@
-import { Activity, Cpu, Filter, RefreshCw } from 'lucide-react';
+import { Activity, DatabaseZap, RefreshCw } from 'lucide-react';
 import React, { useState } from 'react';
 import { Button } from '../../../components/ui/Button';
 import { useMonitorStore } from '../../../stores/useMonitorStore';
-import { SubagentSession } from '../../../types/pilot';
 import { useMonitorSessions } from '../hooks/useMonitorSessions';
+import { useRefreshMonitorCache } from '../hooks/useRefreshMonitorCache';
 import { SessionCard } from './SessionCard';
 import { SessionDetail } from './SessionDetail';
 import './MonitorPane.css';
 
 export const MonitorPane: React.FC = () => {
   const { data: sessions = [], refetch, isFetching } = useMonitorSessions();
+  const { refreshCache, isRefreshing: isCacheRefreshing } = useRefreshMonitorCache();
   const selectedSession = useMonitorStore((state) => state.selectedSession);
   const setSelectedSession = useMonitorStore((state) => state.setSelectedSession);
   const hideEnded = useMonitorStore((state) => state.hideEnded);
@@ -90,6 +91,16 @@ export const MonitorPane: React.FC = () => {
             leftIcon={<RefreshCw size={12} />}
           >
             Refresh
+          </Button>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => refreshCache()}
+            isLoading={isCacheRefreshing}
+            leftIcon={<DatabaseZap size={12} />}
+            title="Drop the server-side session cache and re-read every transcript from disk. Use it when a session looks stale after an external edit."
+          >
+            Refresh cache
           </Button>
         </div>
       </div>

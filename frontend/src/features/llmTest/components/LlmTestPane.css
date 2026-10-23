@@ -1,0 +1,300 @@
+.llmt-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background-color: var(--bg-app);
+}
+
+.llmt-pane-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 1.1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-sidebar);
+}
+
+.llmt-pane-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.llmt-pane-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.llmt-pane-sub {
+  font-size: 0.66rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.llmt-pane-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.1rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+/* ── content card ──────────────────────────────────────────────────── */
+
+/* Caps are measured against the *pane*, not the viewport. At iPad portrait the
+   stacked form leaves ~443px for this pane, so a 55dvh cap (649px) never
+   engages and the pane scrolls while the content block never does. cqh reads the
+   pane's own height (container-type below), so the cap always fits. */
+.llmt-pane-scroll {
+  container-type: size;
+}
+
+.llmt-content-card > .llmt-code {
+  min-height: 6rem;
+  max-height: 55cqh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* The thinking block is a <details> inside the card: it must not compete with
+   the answer for height, so it keeps its own small cap. */
+.llmt-content-card > .llmt-reasoning {
+  flex: 0 0 auto;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.llmt-content-card > .llmt-reasoning .llmt-code-sm {
+  max-height: none;
+}
+
+.llmt-metrics-card {
+  max-height: 40cqh;
+  min-height: 4rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.llmt-segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.llmt-segmented button {
+  border: 0;
+  background: transparent;
+  padding: 0.16rem 0.45rem;
+  font-size: 0.64rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.llmt-segmented button:hover {
+  color: var(--text-main);
+}
+
+.llmt-segmented button.is-on {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+/* ── envelope metrics ──────────────────────────────────────────────── */
+
+.llmt-metric-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.9rem 1.2rem;
+  padding: 0.8rem 0.75rem 0.9rem;
+}
+
+.llmt-metric-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.llmt-metrics {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.llmt-metric {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.llmt-metric dt {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.llmt-metric dd {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--text-main);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.llmt-split {
+  padding: 0 0.75rem 0.8rem;
+}
+
+.llmt-split-bar {
+  display: flex;
+  height: 4px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--bg-hover);
+}
+
+.llmt-split-prompt {
+  background: var(--text-dim);
+}
+
+.llmt-split-completion {
+  background: var(--accent);
+}
+
+.llmt-split-legend {
+  margin: 0.4rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.63rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── states ────────────────────────────────────────────────────────── */
+
+.llmt-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.4rem 1.1rem;
+}
+
+.llmt-empty-icon {
+  color: var(--accent);
+}
+
+.llmt-empty-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.llmt-empty-body {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.llmt-running-line {
+  height: 2px;
+  background: var(--accent);
+  transform-origin: left center;
+  animation: llmtSweep 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes llmtSweep {
+  0% {
+    transform: scaleX(0.06);
+    opacity: 1;
+  }
+  60% {
+    transform: scaleX(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .llmt-running-line {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+.llmt-running-body {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.llmt-running-label {
+  font-size: 0.78rem;
+  color: var(--text-main);
+}
+
+.llmt-running-clock {
+  font-size: 0.9rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.llmt-error-msg {
+  margin: 0 0 0.55rem;
+  font-size: 0.7rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  color: var(--text-main);
+}
+
+/* ── request preview ───────────────────────────────────────────────── */
+
+.llmt-preview-body {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.llmt-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem 0.4rem 0.75rem;
+}
+
+.llmt-preview-url {
+  font-size: 0.63rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

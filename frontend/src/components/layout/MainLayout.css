@@ -1,30 +1,54 @@
 .main-layout-root {
   display: flex;
   flex-direction: column;
+  /* 100vh on iOS Safari is the *largest* viewport, so a column that fills it
+     pushes its footer below the visible area (measured: 1132px of layout inside
+     ~1040px of screen at 820x1180). It hid the Test IA "Run test" button. */
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
   background-color: var(--bg-app);
 }
 
 .main-grid-container {
+  /* The left rail width lives in one variable so the collapse toggle and the
+     per-tab variants cannot drift apart. */
+  --rail: 310px;
   display: grid;
-  grid-template-columns: 310px 1fr 320px;
+  grid-template-columns: var(--rail) 1fr 320px;
   height: calc(100vh - 48px);
+  height: calc(100dvh - 48px);
   width: 100%;
   overflow: hidden;
 }
 
+/* Collapsed rail: the tab recovers 310px for its own content. On an iPad that
+   is the difference between a 508px and an 818px centre column. */
+.main-grid-container.rail-collapsed {
+  --rail: 0px;
+}
+
+.main-grid-container.rail-collapsed .column-left {
+  display: none;
+}
+
+/* Explicit tracks. With `display: none` on a collapsed rail, auto-placement
+   moves the centre column into the 0px track and the tab renders 0px wide. */
 .column-left {
+  grid-column: 1;
   height: 100%;
   overflow: hidden;
+  min-width: 0;
 }
 
 .column-center {
+  grid-column: 2;
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  min-width: 0;
   background-color: var(--bg-app);
 }
 
@@ -39,8 +63,10 @@
 }
 
 .column-right {
+  grid-column: 3;
   height: 100%;
   overflow: hidden;
+  min-width: 0;
 }
 
 /* Services board: no doc sidebar and no actions panel, the cards take the width. */
@@ -48,22 +74,44 @@
   grid-template-columns: 1fr;
 }
 
+.main-grid-container.grid-services .column-center {
+  grid-column: 1;
+}
+
 /* Skills: taxonomy rail, the ficha, and the analyst chat. */
 .main-grid-container.grid-skills {
   /* Right rail (skill chat) +10% vs the previous 348px: answers are prose, not a form. */
-  grid-template-columns: 306px 1fr 382px;
+  --rail: 306px;
+  grid-template-columns: var(--rail) 1fr 382px;
+}
+
+/* Test IA / Test Imagen: no document rail. The result takes the width, the form
+   the rail. */
+.main-grid-container.grid-lab {
+  /* +10% on the form rail: the master prompt is prose, not a two-word label. */
+  grid-template-columns: 1fr 409px;
+}
+
+.main-grid-container.grid-lab .column-center {
+  grid-column: 1;
+}
+
+.main-grid-container.grid-lab .column-right {
+  grid-column: 2;
 }
 
 /* Responsive collapse on smaller windows */
 @media (max-width: 1100px) {
   .main-grid-container {
-    grid-template-columns: 280px 1fr 290px;
+    --rail: 280px;
+    grid-template-columns: var(--rail) 1fr 290px;
   }
 }
 
 @media (max-width: 900px) {
   .main-grid-container {
-    grid-template-columns: 260px 1fr;
+    --rail: 260px;
+    grid-template-columns: var(--rail) 1fr;
   }
   .column-right {
     display: none;
@@ -75,12 +123,33 @@
     grid-template-columns: 1fr;
   }
   .main-grid-container.grid-skills {
-    grid-template-columns: 268px 1fr 352px;
+    --rail: 268px;
+    grid-template-columns: var(--rail) 1fr 352px;
+  }
+  .main-grid-container.grid-lab {
+    grid-template-columns: 1fr 374px;
   }
 }
 
 @media (max-width: 900px) {
   .main-grid-container.grid-skills {
-    grid-template-columns: 240px 1fr;
+    --rail: 240px;
+    grid-template-columns: var(--rail) 1fr;
+  }
+  /* The form is the only way to run a probe: at this width it stacks below the
+     result instead of disappearing with the generic .column-right rule. */
+  .main-grid-container.grid-lab {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .main-grid-container.grid-lab .column-right {
+    display: block;
+    grid-column: 1;
+    height: auto;
+    /* dvh, not vh: Safari on iPad would otherwise hand the sheet more height
+       than the screen has and clip the submit button. */
+    max-height: 52vh;
+    max-height: 52dvh;
+    border-top: 1px solid var(--border-subtle);
   }
 }
