@@ -22,4 +22,6 @@ export const queryKeys = {
   llmTestPreview: (payload: unknown) => ['llm-test', 'preview', payload] as const,
   imageTestDefaults: ['image-test', 'defaults'] as const,
   imageTestPreview: (payload: unknown) => ['image-test', 'preview', payload] as const,
+  imageLocalModels: ['image-test', 'local', 'models'] as const,
+  imageLocalStatus: ['image-test', 'local', 'status'] as const,
 };

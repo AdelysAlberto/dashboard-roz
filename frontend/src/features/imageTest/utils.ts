@@ -1,9 +1,17 @@
-import { ImageBackend, ImageTestDefaults, ImageTestDraft, ImageTestRequest } from '../../types/imageTest';
+import {
+  ImageBackend,
+  ImageTestDefaults,
+  ImageTestDraft,
+  ImageTestRequest,
+  ImageTestRun,
+  LocalLastRun,
+} from '../../types/imageTest';
 
 export const BACKEND_OPTIONS: { value: ImageBackend; label: string }[] = [
   { value: 'auto', label: 'Auto (from URL)' },
   { value: 'a1111', label: 'A1111 / sdapi' },
   { value: 'openai', label: 'OpenAI /v1/images' },
+  { value: 'local', label: 'Local (mflux)' },
 ];
 
 /** String field of a draft: the persisted blob is untrusted, never call a method
@@ -25,6 +33,7 @@ export function draftToRequest(draft: ImageTestDraft): ImageTestRequest {
     api_key: text(draft.api_key),
     backend: draft.backend ?? 'auto',
     model: text(draft.model),
+    local_path: text(draft.local_path),
     steps: numberOr(draft.steps, 50),
     guidance: numberOr(draft.guidance, 4),
     seed: text(draft.seed),
@@ -52,6 +61,7 @@ export function seedFromDefaults(
     api_url: draft.api_url || defaults.api_url,
     model: draft.model || defaults.model,
     backend: draft.backend || defaults.backend,
+    local_path: draft.local_path || defaults.local_model_path,
     master_prompt: draft.master_prompt || defaults.master_prompt,
     orientation: draft.orientation || (defaults.orientation as ImageTestDraft['orientation']),
   };
@@ -70,6 +80,7 @@ export function serverDefaultsPatch(
     api_url: defaults.api_url,
     model: defaults.model,
     backend: defaults.backend,
+    local_path: defaults.local_model_path,
     steps: String(defaults.steps),
     guidance: String(defaults.guidance),
     orientation: defaults.orientation as ImageTestDraft['orientation'],
@@ -105,9 +116,42 @@ export function dataUrl(b64: string): string {
   return `data:image/png;base64,${b64}`;
 }
 
+/** A finished local run, back into the shape the result panel renders. The
+ * image itself is not in the payload: `image_b64` stays empty and the card
+ * falls back to the file URL, which is the same PNG. */
+export function runFromLastRun(last: LocalLastRun): ImageTestRun {
+  return {
+    image_b64: '',
+    image_name: last.image_name,
+    image_bytes: last.image_bytes,
+    meta: last.meta,
+    latency_ms: last.latency_ms,
+    request: last.request,
+    raw: last.raw,
+  };
+}
+
 /** Strip the directory, keep the file: the full path is metadata, the name is
  * what the download button needs. */
 export function baseName(path: string): string {
   const parts = path.split('/');
   return parts[parts.length - 1] || path;
+}
+
+/** Folder name of a checkpoint: the path is long and the rail is narrow. */
+export function modelFolderName(path: string): string {
+  const trimmed = path.replace(/\/+$/, '');
+  return baseName(trimmed) || path;
+}
+
+export function isLocalBackend(backend: string): boolean {
+  return backend === 'local';
+}
+
+/** Two folder paths that mean the same checkpoint. The server answers with a
+ * resolved absolute path while the rail may carry a trailing slash. */
+export function samePath(left: string | null | undefined, right: string | null | undefined): boolean {
+  if (!left || !right) return false;
+  const clean = (value: string) => value.trim().replace(/\/+$/, '');
+  return clean(left) === clean(right);
 }

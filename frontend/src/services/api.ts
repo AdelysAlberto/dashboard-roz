@@ -20,6 +20,8 @@ import {
   ImageTestPreview,
   ImageTestRequest,
   ImageTestRun,
+  LocalModelsPayload,
+  LocalModelStatus,
 } from '../types/imageTest';
 import {
   ActionOutput,
@@ -159,6 +161,21 @@ export const api = {
     request<ImageTestPreview>('POST', '/api/image-test/preview', payload),
   generateImageTest: (payload: ImageTestRequest) =>
     request<ImageTestRun>('POST', '/api/image-test/generate', payload),
+
+  // Test Imagen · local mflux backend (roz loads the checkpoint itself)
+  getLocalImageModels: () =>
+    request<LocalModelsPayload>('GET', '/api/image-test/local/models'),
+  getLocalImageStatus: () =>
+    request<LocalModelStatus>('GET', '/api/image-test/local/status'),
+  loadLocalImageModel: (path: string) =>
+    request<LocalModelStatus>('POST', '/api/image-test/local/load', { path }),
+  unloadLocalImageModel: () =>
+    request<LocalModelStatus>('POST', '/api/image-test/local/unload'),
+  generateLocalImage: (payload: ImageTestRequest) =>
+    request<ImageTestRun>('POST', '/api/image-test/local/generate', {
+      ...payload,
+      model_path: payload.local_path,
+    }),
 
   // Kokoro (voces)
   getKokoroVoices: (id: string) => request<KokoroVoices>('GET', `/api/engines/${id}/voices`),

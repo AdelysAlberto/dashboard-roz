@@ -14,13 +14,16 @@ interface Props {
  */
 export function ImageResultCard({ run }: Props) {
   const name = run.image_name || baseName(run.meta.saved_path);
+  // A run recovered from the server after a reload carries no base64: the PNG
+  // on disk is the same file, so the frame reads it from the file route.
+  const src = run.image_b64 ? dataUrl(run.image_b64) : fileUrl(name);
 
   return (
     <section className="it-result">
       <div className="it-result-frame">
         <img
           className="it-result-img"
-          src={dataUrl(run.image_b64)}
+          src={src}
           alt="Generated image"
           decoding="async"
         />

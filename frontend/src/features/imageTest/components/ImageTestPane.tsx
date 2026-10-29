@@ -7,7 +7,9 @@ import { useElapsedSeconds } from '../../../hooks/useElapsedSeconds';
 import { ImageMetrics } from './ImageMetrics';
 import { ImageResultCard } from './ImageResultCard';
 import { useImageTestRun } from '../hooks/useImageTestRun';
-import { formatMs } from '../utils';
+import { useLocalRunSync } from '../hooks/useLocalRunSync';
+import { useImageTestDefaults } from '../hooks/useImageTestDefaults';
+import { formatMs, isLocalBackend } from '../utils';
 import './ImageTest.css';
 
 function subtitleFor(run: ImageTestRun | null, error: string | null): string {
@@ -21,9 +23,24 @@ export function ImageTestPane() {
   const run = useImageTestStore((state) => state.run);
   const error = useImageTestStore((state) => state.error);
   const isRunning = useImageTestStore((state) => state.isRunning);
-  const startedAt = useImageTestStore((state) => state.startedAt);
-  const elapsed = useElapsedSeconds(startedAt, isRunning);
+  const storeStartedAt = useImageTestStore((state) => state.startedAt);
+  const backend = useImageTestStore((state) => state.draft.backend);
+  const { data: defaults } = useImageTestDefaults();
+  // A reload keeps the local worker running: the clock has to come from the
+  // server's start time, not from state that the reload erased.
+  const { isGenerating, startedAt: localStartedAt } = useLocalRunSync();
+  const local = isLocalBackend(backend);
+  const working = isRunning || (local && isGenerating);
+  const workStartedAt = isRunning
+    ? storeStartedAt
+    : localStartedAt
+      ? Date.parse(localStartedAt)
+      : null;
+  const elapsed = useElapsedSeconds(workStartedAt, working);
   const { run: generate } = useImageTestRun();
+
+  // The browser that started the run may be gone; the PNG still lands here.
+  const outDir = defaults?.out_dir ?? '';
 
   return (
     <div className="it-pane">
@@ -31,13 +48,13 @@ export function ImageTestPane() {
         <div className="it-pane-heading">
           <span className="it-pane-title">Image</span>
           <span className="it-pane-sub font-mono">
-            {isRunning ? 'generating…' : subtitleFor(run, error)}
+            {working ? 'generating…' : subtitleFor(run, error)}
           </span>
         </div>
       </header>
 
       <div className="it-pane-scroll">
-        {isRunning && (
+        {working && (
           <section className="it-card it-running" aria-live="polite">
             <div className="it-running-line" />
             <div className="it-running-body">
@@ -45,12 +62,14 @@ export function ImageTestPane() {
               <span className="it-running-clock font-mono">{elapsed.toFixed(1)} s</span>
             </div>
             <p className="it-card-foot">
-              A local sampler runs steps sequentially: the image arrives in one piece at the end.
+              A local sampler runs steps sequentially: the image arrives in one piece at the
+              end{outDir ? ` and lands in ` : '.'}
+              {outDir && <code className="it-path">{outDir}</code>}
             </p>
           </section>
         )}
 
-        {!isRunning && error && (
+        {!working && error && (
           <Alert variant="error" title="The generation failed">
             <p className="it-error-msg font-mono">{error}</p>
             <Button
@@ -64,14 +83,14 @@ export function ImageTestPane() {
           </Alert>
         )}
 
-        {!isRunning && !error && run && (
+        {!working && !error && run && (
           <>
             <ImageResultCard run={run} />
             <ImageMetrics run={run} />
           </>
         )}
 
-        {!isRunning && !error && !run && (
+        {!working && !error && !run && (
           <section className="it-card it-empty">
             <ImageIcon size={22} className="it-empty-icon" />
             <h3 className="it-empty-title">Generate one image</h3>

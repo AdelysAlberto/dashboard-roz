@@ -75,12 +75,34 @@ def _slug(text: str, limit: int = 40) -> str:
 def save_image(data: bytes, subject: str) -> Path:
     """PNG bytes on disk, lossless, timestamped. This is the high-definition copy:
     the browser preview is the same file, never a re-encode."""
+    path = target_path(subject)
+    path.write_bytes(data)
+    return path
+
+
+def target_path(subject: str) -> Path:
+    """Where the next PNG goes. Split out because the local mflux worker writes
+    the file itself and roz still owns the name."""
     target = out_dir()
     target.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    path = target / f"{stamp}-{_slug(subject)}.png"
-    path.write_bytes(data)
-    return path
+    return target / f"{stamp}-{_slug(subject)}.png"
+
+
+def result_from_file(
+    path: Path, meta: dict, latency_ms: int, request: dict, raw: dict
+) -> dict:
+    """The run shape the UI consumes, built from a PNG already on disk."""
+    data = path.read_bytes()
+    return {
+        "image_b64": base64.b64encode(data).decode("ascii"),
+        "image_name": path.name,
+        "image_bytes": len(data),
+        "meta": meta,
+        "latency_ms": latency_ms,
+        "request": request,
+        "raw": raw,
+    }
 
 
 def normalise(

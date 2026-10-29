@@ -20,9 +20,11 @@ from server import (  # noqa: E402
     auth,
     engines_api,
     image_test_api,
+    image_test_local_api,
     latigazo,
     llm_test_api,
     mdstore,
+    mflux_local,
     monitor,
     pilot,
     services_api,
@@ -41,6 +43,7 @@ app.include_router(engines_api.router)
 app.include_router(skills_api.router)
 app.include_router(llm_test_api.router)
 app.include_router(image_test_api.router)
+app.include_router(image_test_local_api.router)
 
 WEB = BASE / "web"
 
@@ -52,6 +55,12 @@ def _startup():
     host = os.environ.get("ROZ_HOST", "127.0.0.1")
     gate = f"basic auth for {_CREDENTIALS['user']}" if _CREDENTIALS else "NO AUTH"
     print(f"[roz] bind {host} · {gate} (loopback exempt)")
+
+
+@app.on_event("shutdown")
+def _shutdown():
+    # A resident mflux worker holds 22 GB of weights. Nobody else will reap it.
+    mflux_local.shutdown()
 
 
 # ── API ────────────────────────────────────────────────────────────────

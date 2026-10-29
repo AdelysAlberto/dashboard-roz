@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { api } from '../../../services/api';
 import { useImageTestStore } from '../../../stores/useImageTestStore';
 import { ImageTestRequest } from '../../../types/imageTest';
-import { draftToRequest } from '../utils';
+import { draftToRequest, isLocalBackend } from '../utils';
 
 /**
  * One generation. The running state lives in the store because the button is in
@@ -16,7 +16,10 @@ export function useImageTestRun() {
   const setError = useImageTestStore((state) => state.setError);
 
   const mutation = useMutation({
-    mutationFn: (request: ImageTestRequest) => api.generateImageTest(request),
+    mutationFn: (request: ImageTestRequest) =>
+      isLocalBackend(request.backend)
+        ? api.generateLocalImage(request)
+        : api.generateImageTest(request),
     onMutate: () => {
       beginRun();
     },

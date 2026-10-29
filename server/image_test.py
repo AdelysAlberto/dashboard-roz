@@ -21,6 +21,7 @@ from typing import Any
 
 import httpx
 
+from server import mflux_models
 from server.image_store import UpstreamError, normalise, out_dir, save_image
 from server.image_test_prompt import IMAGE_MASTER_PROMPT, ORIENTATION_LINES
 
@@ -52,6 +53,11 @@ def defaults() -> dict:
         "master_prompt": IMAGE_MASTER_PROMPT,
         "timeout": float(_env("ROZ_IMAGE_TEST_TIMEOUT", "600") or 600),
         "out_dir": str(out_dir()),
+        # Local backend: roz loads the weights itself through mflux, no HTTP hop.
+        "local_model_path": mflux_models.default_model_path(),
+        "models_dir": str(mflux_models.models_root()),
+        "mflux_python": mflux_models.python_for_mflux(),
+        "mflux_available": mflux_models.mflux_available(),
     }
 
 
@@ -118,11 +124,18 @@ def _float_or(value: object, fallback: float) -> float:
         return fallback
 
 
+def sampling(spec: dict) -> tuple[int, float]:
+    """Steps and guidance, clamped to what the sampler and the model card accept.
+    Shared by the HTTP payload and the local mflux worker so the two cannot drift."""
+    steps = max(1, min(100, _int_or(spec.get("steps"), DEFAULT_STEPS)))
+    guidance = max(0.0, min(20.0, _float_or(spec.get("guidance"), DEFAULT_GUIDANCE)))
+    return steps, guidance
+
+
 def build_payload(spec: dict, backend: str) -> dict[str, Any]:
     width, height = size_for(spec.get("orientation"))
     prompt = build_prompt(spec)
-    steps = max(1, min(100, _int_or(spec.get("steps"), DEFAULT_STEPS)))
-    guidance = max(0.0, min(20.0, _float_or(spec.get("guidance"), DEFAULT_GUIDANCE)))
+    steps, guidance = sampling(spec)
     seed = _int_or(spec.get("seed"), -1)
     seed = seed if seed >= 0 else -1
     if backend == "openai":

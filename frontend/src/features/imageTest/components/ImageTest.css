@@ -526,6 +526,49 @@
   overflow-y: auto;
 }
 
+/* ── local mflux checkpoint ────────────────────────────────────────── */
+
+.it-local-meta {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.it-local-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.it-local-actions .btn {
+  flex: 0 0 auto;
+}
+
+.it-local-msg {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.it-local .it-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.it-local-icon {
+  flex: 0 0 auto;
+  margin-top: 0.12rem;
+  color: var(--text-dim);
+}
+
 @media (max-width: 900px) {
   .it-result-img {
     max-height: 45cqh;
@@ -534,4 +577,39 @@
   .it-orient-row {
     gap: 0.35rem;
   }
+}
+
+/* One line saying which checkpoint is resident, so the green badge is never a
+   guess: it names the model or it says nothing is loaded. */
+.it-local-swap {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.it-local-swap strong {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.it-local-swap-warn {
+  padding: 0.35rem 0.45rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-subtle);
+  background: var(--code-bg);
+  color: var(--text-dim);
+}
+
+/* The output folder, spelled out in the running card: the PNG lands there even
+   if the tab that asked for it is gone. */
+.it-path {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-xs);
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  color: var(--text-muted);
+  word-break: break-all;
 }

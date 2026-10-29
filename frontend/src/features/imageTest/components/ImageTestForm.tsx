@@ -2,19 +2,14 @@ import { ImageIcon, Play, RotateCcw, ServerCog } from 'lucide-react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
-import { Select } from '../../../components/ui/Select';
 import { Textarea } from '../../../components/ui/Textarea';
 import { useImageTestStore } from '../../../stores/useImageTestStore';
 import { useToastStore } from '../../../stores/useToastStore';
-import { ImageBackend } from '../../../types/imageTest';
 import { useImageTestDefaults } from '../hooks/useImageTestDefaults';
 import { useImageTestRun } from '../hooks/useImageTestRun';
-import {
-  BACKEND_OPTIONS,
-  seedFromDefaults,
-  serverDefaultsPatch,
-  urlError,
-} from '../utils';
+import { useLocalModelStatus } from '../hooks/useLocalModel';
+import { isLocalBackend, samePath, seedFromDefaults, serverDefaultsPatch, urlError } from '../utils';
+import { BackendFields } from './BackendFields';
 import { OrientationPicker } from './OrientationPicker';
 import './ImageTest.css';
 
@@ -23,10 +18,10 @@ export function ImageTestForm() {
   const patch = useImageTestStore((state) => state.patch);
   const { data: defaults } = useImageTestDefaults();
   const { run, isRunning } = useImageTestRun();
+  const { data: localStatus } = useLocalModelStatus();
   const info = useToastStore((state) => state.info);
 
   const [submitted, setSubmitted] = useState(false);
-  const [urlTouched, setUrlTouched] = useState(false);
   const seeded = useRef(false);
 
   // The .env seed fills blanks only: a stored draft or a typed value always wins.
@@ -38,12 +33,17 @@ export function ImageTestForm() {
     state.patch(seedFromDefaults(state.draft, defaults));
   }, [defaults]);
 
-  const endpointError = urlError(draft.api_url);
+  const local = isLocalBackend(draft.backend);
+  // The worker generates with what it holds, not with what the rail shows: a
+  // stale selection must not quietly produce an image from another checkpoint.
+  const localReady =
+    !local || (localStatus?.state === 'ready' && samePath(localStatus.path, draft.local_path));
+  const endpointError = local ? null : urlError(draft.api_url);
   const promptError = draft.user_prompt.trim() ? null : 'Describe the image you want.';
 
   const submit = async () => {
     setSubmitted(true);
-    if (endpointError || promptError) return;
+    if (endpointError || promptError || !localReady) return;
     await run();
   };
 
@@ -89,46 +89,7 @@ export function ImageTestForm() {
       </header>
 
       <div className="it-form-scroll">
-        <section className="it-group">
-          <h3 className="it-group-title">Endpoint</h3>
-          <Input
-            label="API URL"
-            value={draft.api_url}
-            onChange={(event) => patch({ api_url: event.target.value })}
-            onBlur={() => setUrlTouched(true)}
-            placeholder="http://127.0.0.1:8039"
-            error={endpointError && (submitted || urlTouched) ? endpointError : undefined}
-            spellCheck={false}
-            autoComplete="off"
-          />
-          <Select
-            label="Shape"
-            options={BACKEND_OPTIONS}
-            value={draft.backend}
-            onChange={(event) =>
-              patch({ backend: event.target.value as ImageBackend })
-            }
-          />
-          <Input
-            label="Model"
-            value={draft.model}
-            onChange={(event) => patch({ model: event.target.value })}
-            placeholder="mlx-community/Qwen-Image-2512-6bit"
-            hint="openai shape only"
-            spellCheck={false}
-            autoComplete="off"
-          />
-          <Input
-            label="API key"
-            type="password"
-            value={draft.api_key}
-            onChange={(event) => patch({ api_key: event.target.value })}
-            placeholder={defaults?.has_key ? 'using ROZ_IMAGE_TEST_KEY' : 'none'}
-            hint="empty = env"
-            spellCheck={false}
-            autoComplete="off"
-          />
-        </section>
+        <BackendFields submitted={submitted} hasKey={Boolean(defaults?.has_key)} />
 
         <section className="it-group">
           <h3 className="it-group-title">Sampling</h3>
@@ -238,10 +199,18 @@ export function ImageTestForm() {
           size="md"
           leftIcon={isRunning ? <ImageIcon size={14} /> : <Play size={14} />}
           isLoading={isRunning}
+          disabled={!localReady}
           onClick={() => void submit()}
           className="it-run"
+          title={
+            localReady ? undefined : 'Load the selected checkpoint before generating'
+          }
         >
-          {isRunning ? 'Generating…' : 'Generate image'}
+          {isRunning
+            ? 'Generating…'
+            : local && !localReady
+              ? 'Load the selected checkpoint'
+              : 'Generate image'}
         </Button>
         <span className="it-kbd font-mono">⌘↵</span>
       </footer>

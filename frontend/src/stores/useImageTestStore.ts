@@ -7,6 +7,7 @@ export const EMPTY_IMAGE_DRAFT: ImageTestDraft = {
   api_key: '',
   backend: 'auto',
   model: '',
+  local_path: '',
   steps: '50',
   guidance: '4',
   seed: '',

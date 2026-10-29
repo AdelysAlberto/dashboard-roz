@@ -90,6 +90,11 @@ The ladder, weakest first:
 - Configuration resolves from environment variables with a sane default:
   `ROZ_LATIGAZO_TOOL_SECONDS`, `ROZ_LATIGAZO_COOLDOWN`, `ROZ_LATIGAZO_AUTO`,
   `ROZ_WATCHDOG_INTERVAL`, `OPENCODE_BIN`, `OPENCODE_DB_PATH`.
+- The local image generator runs on `~/.venvs/mflux` (Python 3.14, mflux 0.23.0)
+  and it needs `pillow<13` **pinned**: Pillow 13.0.0 imports
+  `numbers._IntegralLike`, which no CPython on this machine ships, and mflux
+  imports PIL at module load, so the worker dies before it can load anything.
+  `uv pip install mflux` selects 13.0.0 again; re-pin after any upgrade.
 - `ROZ_HOST` defaults to `127.0.0.1`. Binding `0.0.0.0` without `ROZ_USER` and
   `ROZ_PASS` publishes pilot (which runs `pi`), the services board and every
   scanned transcript to whoever reaches the port: the gate is HTTP Basic on
@@ -188,14 +193,15 @@ spending a model call, which is the only way to verify the wrapping.
 ## 6. Test Imagen (diffusion lab)
 
 Same contract as Test IA, one tab to the right: the operator types plain text,
-**Roz owns the envelope**. Two upstream shapes, because the local options
-disagree, and the form picks one from the URL (`ROZ_IMAGE_TEST_BACKEND` = `auto`
-| `a1111` | `openai`):
+**Roz owns the envelope**. Three upstream shapes, because the local options
+disagree, and the form picks one from `ROZ_IMAGE_TEST_BACKEND` = `auto` |
+`a1111` | `openai` | `local` (or the Shape selector at runtime):
 
 | Shape | Route | Body |
 |---|---|---|
 | `a1111` | `POST {base}/sdapi/v1/txt2img` | prompt, negative_prompt, width, height, steps, cfg_scale, seed |
 | `openai` | `POST {base}/v1/images/generations` | model, prompt, size, response_format=b64_json |
+| `local` | in-process, via `server/mflux_worker.py` | prompt, negative_prompt, steps, guidance, width, height, seed, out_path |
 
 - The prompt is `master prompt` + `subject` + framing line, in that order. The
   framing line is what carries the orientation; sizes are the Qwen-Image model
@@ -210,5 +216,50 @@ disagree, and the form picks one from the URL (`ROZ_IMAGE_TEST_BACKEND` = `auto`
   button and refuses any name that resolves outside the output directory.
 - A generator is a separate runtime from oMLX: `mlx-lm` serves chat models, so a
   loaded chat model never yields an image. The lab talks to whatever service
-  exposes one of the two shapes above (`ROZ_IMAGE_TEST_URL`); with nothing
-  configured it answers 400, never a fake image.
+  exposes one of the two HTTP shapes above (`ROZ_IMAGE_TEST_URL`); with nothing
+  configured it answers 400, never a fake image. The third shape skips HTTP
+  entirely.
+
+### Local backend (mflux)
+
+`local` means roz loads the weights itself. `server/mflux_local.py` spawns one
+resident worker (`server/mflux_worker.py`) with the interpreter that has mflux —
+`ROZ_MFLUX_PYTHON`, default `~/.venvs/mflux/bin/python` — and drives it with one
+JSON object per line. roz never imports mlx: a 20B diffusion model living inside
+the web server would take 22 GB it has no way to give back.
+
+- `server/mflux_models.py` validates the folder **without mlx**: the component
+  trees (`transformer/`, `vae/`, `text_encoder/`) plus the text-encoder tree of
+  its family, and a name or README that says Qwen-Image. Pointing the worker at a
+  chat-model folder has to fail in milliseconds, not after 22 GB of weights.
+- Two families, two layouts, two mflux classes, and they are not interchangeable:
+  `qwen-image` (2512/2511) uses `tokenizer/` and `QwenImage` + `ModelConfig.qwen_image()`;
+  `qwen-image-2.1` uses `processor/` (Qwen3-VL) and `QwenImage21` +
+  `ModelConfig.qwen_image_21()`. The family travels in the load request, so a
+  2.1 folder that only carries `tokenizer/` is reported as missing `processor/`
+  instead of dying inside attention on the wrong shapes. 2.1 takes guidance
+  around 1.0 (`QwenImage21.generate_image` default) — the card says so when that
+  checkpoint is loaded, and still sends whatever the rail holds.
+- The worker warms up with one 512² step. mlx materialises lazily, so without it
+  `ready` would only mean "constructed" and the first real generation would pay
+  the load. A failed warmup is reported as a warning on a loaded model, never as
+  a failed load.
+- `load` answers before the weights are resident. The state machine
+  (`idle | loading | ready | generating | error`) is what the form polls
+  (2 s while busy, 15 s idle); no request is held open for a minute-long load.
+- A generation outlives the request that started it: reload the tab and the POST
+  dies while the worker keeps denoising, and the PNG lands in
+  `ROZ_IMAGE_TEST_OUT` anyway. That is why `/status` carries `started_at` +
+  `elapsed_ms` (the clock, redrawn from the server after a reload) and
+  `last_run` (the finished image, without base64 — the card reads the same PNG
+  from `/api/image-test/file/{name}`). `last_run` lives in the process: a roz
+  restart forgets it, the file stays.
+- One model at a time and one generation at a time (`409` on conflict): the two
+  checkpoints on this machine are 21.8 and 24.1 GiB, so two of them is a swap
+  storm. `unload` and the app shutdown event both reap the child.
+- Checkpoints are discovered one level under `ROZ_IMAGE_TEST_MODELS_DIR`
+  (`/Volumes/Datos/OllamaModels/oMLX/mlx-community`); `ROZ_IMAGE_TEST_LOCAL_MODEL`
+  is the default folder, the 3-bit one on this machine. The path field stays
+  editable, so a checkpoint outside that root still runs.
+- Generation is long by design (a 20B sampler on a 48 GB Mac takes minutes), so
+  the endpoint blocks like the HTTP backends do and the pane keeps its clock.
